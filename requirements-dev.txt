@@ -1,0 +1,2 @@
+-r skills/make-style-pptx/requirements.txt
+pytest>=8.0
