@@ -19,7 +19,7 @@
       {"kind": "ticket", "params": {"style": "corners"}, "align": "center"}
     ]},
     "label": {"shapes": [
-      {"kind": "handdrawn", "params": {"seed": "auto", "jitter": 0.03, "strokes": 1}}
+      {"kind": "handdrawn", "params": {"seed": "auto", "jitter": 0.03, "strokes": 1, "form": "auto"}}
     ]},
     "panel": {"max_chars": 1000, "shapes": [
       {"kind": "torn", "params": {"seed": "auto", "edges": "auto", "depth": 0.04}, "any_aspect": true}

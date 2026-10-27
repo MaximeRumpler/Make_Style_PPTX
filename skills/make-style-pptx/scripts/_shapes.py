@@ -363,6 +363,36 @@ def _blob_geo(seed=0, wobble=0.10, **_):
     return [Path([_smooth_closed(pts)])]
 
 
+def _pebble_geo(w, h, seed=0, wobble=0.06, squareness=2.6, **_):
+    """Wide (or tall) organic pebble: a superellipse (``squareness`` 2 = ellipse, higher
+    = flatter sides, 2 to 4) at the box's own proportions, its edge pushed in and out
+    by a few slow harmonics (random phases from ``seed``), traced by a smooth closed
+    spline. The bulges are sized on the shorter side, so a long card keeps a calm
+    outline instead of reading as a stretched circle."""
+    if not 0 <= wobble <= 0.15:
+        raise ShapeError("pebble: wobble must be between 0 and 0.15")
+    if not 2 <= squareness <= 4:
+        raise ShapeError("pebble: squareness must be between 2 and 4")
+    rnd = random.Random(int(seed))
+    harm = [(2, 1.0), (3, 0.6), (5, 0.3)]
+    phases = [rnd.random() * 2 * math.pi for _ in harm]
+    amps = [a * (0.7 + 0.6 * rnd.random()) for _, a in harm]
+    norm = sum(amps)
+    a, b, e = w / 2, h / 2, 2 / squareness
+    amp = wobble * min(w, h)
+    n = 28
+    pts = []
+    for i in range(n):
+        t = 2 * math.pi * (i + 0.5) / n
+        c, s_ = math.cos(t), math.sin(t)
+        x = a * math.copysign(abs(c) ** e, c)
+        y = b * math.copysign(abs(s_) ** e, s_)
+        d = amp * sum(k * math.cos(f * t + ph) for (f, _), k, ph in zip(harm, amps, phases)) / norm
+        ln = math.hypot(x, y) or 1.0
+        pts.append((x + d * x / ln, y + d * y / ln))
+    return _fit([Path([_smooth_closed(pts)])], w, h)
+
+
 def _ticket_geo(w, h, notch=0.17, radius=0.07, style="sides", **_):
     """Ticket: rounded card with circular notches, on the two short sides or at the corners."""
     m = min(w, h)
@@ -513,13 +543,16 @@ def _sketch_side(pen: Pen, rnd: random.Random, p0, p1, amp: float, start: bool) 
     pen.curve(x0 + dx * t1 + nx * b1, y0 + dy * t1 + ny * b1, x0 + dx * t2 + nx * b2, y0 + dy * t2 + ny * b2, x1, y1)
 
 
-def _handdrawn_geo(w, h, seed=0, jitter=0.03, strokes=2, overshoot=0.5, **_):
+def _handdrawn_geo(w, h, seed=0, jitter=0.03, strokes=2, overshoot=0.5, form="rect", **_):
     """Hand-drawn card, sketched with a pen. The filled outline has four slightly crooked
     corners joined by slow bows. With ``strokes=2`` a second pencil pass, outline only,
     draws each side again as a separate stroke: offset from the first, at a slightly
     different angle (not parallel) and running past the corners (``overshoot``, 0..1),
     as quick sketches do. Where the two passes meet the line looks thicker.
-    ``jitter``: wobble amplitude over the shorter side (0..0.05)."""
+    ``jitter``: wobble amplitude over the shorter side (0..0.05). ``form``: "rect", or
+    "diamond" for a sketched rhombus (corners at the middle of each side of the box)."""
+    if form not in ("rect", "diamond"):
+        raise ShapeError("handdrawn: form must be rect or diamond")
     if strokes not in (1, 2):
         raise ShapeError("handdrawn: strokes must be 1 or 2")
     if not 0 <= jitter <= 0.05:
@@ -536,6 +569,9 @@ def _handdrawn_geo(w, h, seed=0, jitter=0.03, strokes=2, overshoot=0.5, **_):
         return x + (rnd.random() - 0.5) * 1.6 * amp, y + (rnd.random() - 0.5) * 1.6 * amp
 
     cs = [corner(mg, mg), corner(w - mg, mg), corner(w - mg, h - mg), corner(mg, h - mg)]
+    if form == "diamond":  # tips close to the box edges: a gate keeps the size of a preset diamond
+        md = 1.2 * amp
+        cs = [corner(w / 2, md), corner(w - md, h / 2), corner(w / 2, h - md), corner(md, h / 2)]
     pen = Pen()
     for i in range(4):
         _sketch_side(pen, rnd, cs[i], cs[(i + 1) % 4], amp, i == 0)
@@ -622,6 +658,8 @@ KINDS: Dict[str, Kind] = {
     "drop": Kind(_drop_geo, False, None, 1.2, text_min=1.2, min_size=(1.2, 2.0), max_words=3),
     "cloud": Kind(_cloud_geo, False, None, 1.3),
     "blob": Kind(_blob_geo, False, None, 1.6, text_min=0.9),
+    # a pebble for long cards: drawn at the box size, from square-ish to 2.6:1 either way
+    "pebble": Kind(_pebble_geo, True, (0.38, 2.6)),
     "ticket": Kind(_ticket_geo, True, (1.3, 5.0)),
     "bubble": Kind(_bubble_geo, True, (0.6, 4.0)),
     "torn": Kind(_torn_geo, True, (0.25, 6.0)),

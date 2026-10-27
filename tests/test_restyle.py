@@ -1,5 +1,6 @@
 """Restyler: tags, geometry, safe text boxes, fallback, logo, determinism, round trips."""
 import json
+import math
 import os
 import re
 import shutil
@@ -300,3 +301,98 @@ def test_make_clean_round_trip(packs, tmp_path):
     r = subprocess.run([sys.executable, str(scripts / "lint_deck.py"), str(deck), "--json"], capture_output=True,
                        text=True, timeout=240)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def _item(report, row_id, shape_prefix):
+    return next(it for it in items(report) if it["id"] == row_id and it["shape"].startswith(shape_prefix))
+
+
+def test_text_centred_in_round_shapes(packs):
+    """Blobs, pebbles, circles, clouds: the text fields sit in the middle of the safe box
+    as a group; a single field is also anchored in the middle (V-TIM-05 bullets)."""
+    out, report = packs["organic"]
+    checked = 0
+    for lib, data in report["libraries"].items():
+        shapes = shapes_by_id(out / f"{lib}.pptx", out / f"{lib}.csv")
+        for it in data["items"]:
+            if it["status"] != "restyled" or it["kind"] not in R.CENTRED_KINDS:
+                continue
+            cont = shapes[it["id"]][it["shape"]]
+            safe = text_rect(cont)
+            moved = [R.box(shapes[it["id"]][f]) for f in it["fields"] if f != it["shape"]]
+            if not moved:
+                continue
+            ux0, uy0 = min(b[0] for b in moved), min(b[1] for b in moved)
+            ux1, uy1 = max(b[0] + b[2] for b in moved), max(b[1] + b[3] for b in moved)
+            tol = 0.03 * S.EMU_PER_INCH
+            assert abs((ux0 + ux1) / 2 - (safe[0] + safe[2] / 2)) < tol, (it["id"], it["shape"])
+            assert abs((uy0 + uy1) / 2 - (safe[1] + safe[3] / 2)) < tol, (it["id"], it["shape"])
+            checked += 1
+    assert checked > 10
+    it = _item(report, "V-TIM-05", "card#1")
+    assert it["kind"] == "blob"
+    shapes = shapes_by_id(out / "visuals.pptx", out / "visuals.csv")
+    bp = shapes["V-TIM-05"]["Column 1 items"]._element.find(".//" + A + "bodyPr")
+    assert bp.get("anchor") == "ctr"
+
+
+def test_rectangular_shapes_keep_their_text_layout(packs):
+    """Torn, ticket, rounded: the text keeps its top-left layout (moved the least possible)."""
+    out, report = packs["paper"]
+    before = shapes_by_id(FIXTURE / "visuals.pptx", FIXTURE / "visuals.csv")
+    after = shapes_by_id(out / "visuals.pptx", out / "visuals.csv")
+    it = _item(report, "V-TIM-05", "card#1")
+    assert it["kind"] == "torn"
+    for f in it["fields"]:
+        bp = after["V-TIM-05"][f]._element.find(".//" + A + "bodyPr")
+        assert bp.get("anchor") != "ctr"
+        (x0, y0, _, _), (x1, y1, _, _) = R.box(before["V-TIM-05"][f]), R.box(after["V-TIM-05"][f])
+        assert x0 == x1 and abs(y1 - y0) < 0.1 * S.EMU_PER_INCH  # shifted the least possible, not centred
+
+
+def test_every_candidate_keeps_sixty_percent(packs):
+    """No candidate lowers the 60 % rule: the cloud of L-24 gives way to the next shape."""
+    for name in STYLES:
+        style = R.load_style(name)
+        for conf in style["roles"].values():
+            for cand in conf["shapes"]:
+                assert float(cand.get("keep", style["keep"])) >= 0.6, (name, cand)
+        _, report = packs[name]
+        for it in items(report, "restyled"):
+            for v in it["fields"].values():
+                assert v["limit"] >= math.ceil(0.6 * v["old_limit"]) or v["limit"] == v["old_limit"], (name, it)
+    _, report = packs["organic"]
+    it = _item(report, "L-24", "callout#1")
+    assert it["kind"] != "cloud" and it["tried"][0]["kind"] == "cloud"
+
+
+def test_wide_organic_cards_are_pebbles(packs):
+    """Wide cards and callouts read as pebbles in organic, not as plain rounded boxes."""
+    _, report = packs["organic"]
+    assert _item(report, "L-47", "callout#1")["kind"] == "pebble"
+    assert {_item(report, "L-50", f"card#{n}")["kind"] for n in (2, 3)} == {"pebble"}
+    assert S.aspect_bounds("pebble")[1] >= 2.5
+
+
+def test_key_figures_round_not_tall_ovals(packs):
+    """L-38 key figures: a circle when it holds the text, else never a blob stretched
+    into a tall oval (blobs are squared first, pebbles keep a stone outline)."""
+    _, report = packs["organic"]
+    for n in range(1, 5):
+        it = _item(report, "L-38", f"keyfigure#{n}")
+        assert it["kind"] in ("circle", "pebble"), it
+        assert [t["kind"] for t in it.get("tried", [])][:1] in ([], ["circle"])
+    assert R.square_box((0, 0, 100, 200), 0.85) == (0, 15, 100, 170)
+    assert R.square_box((0, 0, 100, 110), 0.85) == (0, 5, 100, 100)
+    assert R.square_box((0, 0, 300, 100), 0.85) == (22, 0, 255, 100)
+
+
+def test_paper_gates_are_hand_drawn_diamonds(packs):
+    _, report = packs["paper"]
+    for n in (1, 2, 3):
+        it = _item(report, "V-PRO-04", f"Gate {n}")
+        assert it["status"] == "restyled" and it["kind"] == "handdrawn" and it["params"]["form"] == "diamond"
+    stage = _item(report, "V-PRO-04", "Stage 1")
+    assert stage["params"].get("form") is None  # only diamonds become diamonds
+    labels = [it for it in items(report, "restyled") if it["role"] == "label" and it["id"] != "V-PRO-04"]
+    assert labels and all(it["params"]["form"] == "rect" for it in labels if it["id"] not in ("V-PRO-06",))
