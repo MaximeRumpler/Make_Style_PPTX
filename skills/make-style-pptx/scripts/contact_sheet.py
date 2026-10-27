@@ -1,7 +1,8 @@
 """Contact sheet of the shapes library: every container shape at three sizes.
 
-Each shape shows its safe text box (dashed) filled with sample text cut to the
-character limit of that box. Colours are theme colours only (the accent ramp of the
+Each shape shows its safe text box (dashed) filled with sample text cut, at a word
+boundary, to what that box holds. A kind with a minimum size (the drop) is shown at
+its smallest usable size for each font size, never below. Colours are theme colours only (the accent ramp of the
 Make_Clean theme contract, dark to light), fonts are theme fonts.
 
     python contact_sheet.py                      # docs/shapes-contact-sheet.pptx + .png
@@ -46,7 +47,7 @@ SHEET = [
     ("ellipse", "ellipse", {}, 1.45),
     ("circle", "circle", {}, 1.0),
     ("drop", "drop", {}, None),
-    ("drop, tilt 18", "drop", {"tilt": 18}, None),
+    ("drop, tilt 6", "drop", {"tilt": 6}, None),
     ("cloud", "cloud", {}, None),
     ("cloud, 4 lobes, flipped", "cloud", {"lobes": 4, "flip": True}, None),
     ("blob, seed 1", "blob", {"seed": 1}, None),
@@ -55,6 +56,7 @@ SHEET = [
     ("ticket, corner notches", "ticket", {"style": "corners"}, 1.9),
     ("speech bubble", "bubble", {}, 1.5),
     ("speech bubble, tail left", "bubble", {"side": "left", "pos": 0.65, "lean": 0.5}, 1.75),
+    ("speech bubble, tail right", "bubble", {"side": "right", "pos": 0.3, "lean": -0.4}, 1.75),
     ("torn paper", "torn", {}, 1.25),
     ("torn paper, top and bottom", "torn", {"edges": "top+bottom", "seed": 3}, 1.9),
     ("hexagon", "polygon", {"sides": 6}, None),
@@ -80,9 +82,11 @@ DASH = {MSO_THEME_COLOR.ACCENT_1: MSO_THEME_COLOR.ACCENT_4,
         MSO_THEME_COLOR.ACCENT_5: MSO_THEME_COLOR.ACCENT_2}
 
 SLIDE_W, SLIDE_H = Inches(13.333), Inches(7.5)
-COLS, ROWS = 2, 3
+COLS = 2
 CAPTION_W = Inches(0.95)
-CELL_W, CELL_H = Inches(6.35), Inches(2.2)
+CELL_W = Inches(6.35)
+LABEL_H, CAPTION_H, ROW_GAP = Inches(0.3), Inches(0.42), Inches(0.05)
+TOP, BOTTOM = Inches(0.75), Inches(7.45)
 MAX_W, MAX_H = Inches(2.6), Inches(1.45)
 
 
@@ -103,12 +107,17 @@ def _set_theme(prs) -> None:
     theme._blob = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
 
-def _box_for(kind, params, aspect, scale):
+def _box_for(kind, params, aspect, scale, size=S.REFERENCE_PT):
     a = aspect if aspect is not None else S.natural_aspect(kind, **params)
     w, h = MAX_W, MAX_W / a
     if h > MAX_H:
         h, w = MAX_H, MAX_H * a
-    return int(w * scale), int(h * scale)
+    w, h = w * scale, h * scale
+    ms = S.min_size(kind, size)
+    if ms is not None:  # never below the smallest usable size for this font size
+        k = max(ms[0] / w, ms[1] / h, 1.0)
+        w, h = w * k, h * k
+    return int(w), int(h)
 
 
 def _text(slide, x, y, w, h, text, size, colour, *, bold=False, align=PP_ALIGN.LEFT,
@@ -134,11 +143,25 @@ def _text(slide, x, y, w, h, text, size, colour, *, bold=False, align=PP_ALIGN.L
     return tb
 
 
-def _cut(text, limit):
-    if len(text) <= limit:
-        return text
-    cut = text[:limit - 1].rsplit(" ", 1)[0].rstrip(",")
-    return cut + "…"
+def _row_height(cells) -> int:
+    tallest = max(_box_for(kind, params, aspect, scale, size)[1]
+                  for _, kind, params, aspect in cells for scale, _, _, size in SIZES)
+    return LABEL_H + tallest + CAPTION_H
+
+
+def _pages():
+    """Rows of COLS cells, flowed onto slides; a row is as tall as its tallest shape."""
+    rows = [SHEET[i:i + COLS] for i in range(0, len(SHEET), COLS)]
+    pages, cur, y = [], [], TOP
+    for row in rows:
+        rh = _row_height(row)
+        if cur and y + rh > BOTTOM:
+            pages.append(cur)
+            cur, y = [], TOP
+        cur.append((y, row, rh))
+        y += rh + ROW_GAP
+    pages.append(cur)
+    return pages
 
 
 def build(out: Path) -> Path:
@@ -146,39 +169,41 @@ def build(out: Path) -> Path:
     prs.slide_width, prs.slide_height = SLIDE_W, SLIDE_H
     _set_theme(prs)
     blank = prs.slide_layouts[6]
-    per_slide = COLS * ROWS
-    pages = [SHEET[i:i + per_slide] for i in range(0, len(SHEET), per_slide)]
-    margin_x, top = Inches(0.33), Inches(0.75)
+    pages = _pages()
+    margin_x = Inches(0.33)
     for page_no, page in enumerate(pages, 1):
         slide = prs.slides.add_slide(blank)
         _text(slide, margin_x, Inches(0.25), Inches(9), Inches(0.4), "Shapes library: container silhouettes",
               18, MSO_THEME_COLOR.TEXT_1, bold=True)
-        _text(slide, Inches(9.5), Inches(0.3), Inches(3.5), Inches(0.35),
-              f"Dashed: safe text box, sample text cut to its limit · {page_no}/{len(pages)}", 9,
+        _text(slide, Inches(8.5), Inches(0.3), Inches(4.5), Inches(0.35),
+              f"Dashed: safe text box, sample text cut at a word to what it holds · {page_no}/{len(pages)}", 9,
               MSO_THEME_COLOR.ACCENT_3, align=PP_ALIGN.RIGHT)
-        for i, (label, kind, params, aspect) in enumerate(page):
-            cx = margin_x + (i % COLS) * CELL_W
-            cy = top + (i // COLS) * CELL_H
-            _text(slide, cx, cy, CELL_W, Inches(0.3), label, 11, MSO_THEME_COLOR.TEXT_1, bold=True)
-            x = cx
-            base = cy + Inches(0.3) + MAX_H  # shapes sit on a common baseline
-            for scale, fill, ink, size in SIZES:
-                w, h = _box_for(kind, params, aspect, scale)
-                y = base - h
-                shp, ins = S.add_shape(slide, kind, (x, y, w, h), name=f"{kind} {scale}", **params)
-                shp.fill.solid()
-                shp.fill.fore_color.theme_color = fill
-                if kind == "handdrawn":
-                    shp.line.color.theme_color = MSO_THEME_COLOR.TEXT_1
-                    shp.line.width = Pt(1.25)
-                tx, ty, tw, th = ins.rect(x, y, w, h)
-                limit = S.char_limit(tw, th, size)
-                _text(slide, tx, ty, tw, th, _cut(SAMPLE, limit), size, ink, align=PP_ALIGN.CENTER,
-                      anchor=MSO_ANCHOR.MIDDLE, dash=DASH[fill])
-                _text(slide, x, base + Inches(0.06), max(w, CAPTION_W), Inches(0.3),
-                      f"{w / S.EMU_PER_INCH:.2f} x {h / S.EMU_PER_INCH:.2f} in\n{limit} chars at {size} pt",
-                      7, MSO_THEME_COLOR.ACCENT_3)
-                x += max(w, CAPTION_W) + Inches(0.25)
+        for cy, row, rh in page:
+            for i, (label, kind, params, aspect) in enumerate(row):
+                cx = margin_x + i * CELL_W
+                _text(slide, cx, cy, CELL_W, LABEL_H, label, 11, MSO_THEME_COLOR.TEXT_1, bold=True)
+                x = cx
+                base = cy + rh - CAPTION_H  # shapes sit on a common baseline
+                for scale, fill, ink, size in SIZES:
+                    w, h = _box_for(kind, params, aspect, scale, size)
+                    y = base - h
+                    shp, ins = S.add_shape(slide, kind, (x, y, w, h), name=f"{kind} {scale}", **params)
+                    shp.fill.solid()
+                    shp.fill.fore_color.theme_color = fill
+                    if kind == "handdrawn":
+                        shp.line.color.theme_color = MSO_THEME_COLOR.TEXT_1
+                        shp.line.width = Pt(1.25)
+                    tx, ty, tw, th = ins.rect(x, y, w, h)
+                    words = S.word_limit(kind, (w, h), size, **params)
+                    text = S.fit_words(kind, (w, h), SAMPLE, size, **params)
+                    _text(slide, tx, ty, tw, th, text, size, ink, align=PP_ALIGN.CENTER,
+                          anchor=MSO_ANCHOR.MIDDLE, dash=DASH[fill])
+                    _text(slide, x, base + Inches(0.06), max(w, CAPTION_W), Inches(0.3),
+                          f"{w / S.EMU_PER_INCH:.2f} x {h / S.EMU_PER_INCH:.2f} in\n"
+                          + (f"{S.char_limit(tw, th, size)} chars, {words} word{'' if words == 1 else 's'} at {size} pt"
+                           if text else f"too small for this text at {size} pt"),
+                          7, MSO_THEME_COLOR.ACCENT_3)
+                    x += max(w, CAPTION_W) + Inches(0.25)
     out.parent.mkdir(parents=True, exist_ok=True)
     prs.save(out)
     return out

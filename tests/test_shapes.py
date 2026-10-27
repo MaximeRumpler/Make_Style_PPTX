@@ -105,19 +105,19 @@ def test_pinned_bytes():
 
     h = hashlib.sha256()
     for kind, params in [("blob", {"seed": 3}), ("torn", {"seed": 3}), ("handdrawn", {"seed": 3}),
-                         ("drop", {"tilt": 12}), ("cloud", {})]:
+                         ("drop", {"tilt": 6}), ("cloud", {}), ("bubble", {"side": "left"})]:
         nat = S.natural_aspect(kind, **params) or 1.4
         res = S.make_shape(kind, (0, 0, int(1.5 * IN * nat), int(1.5 * IN)), **params)
         h.update(etree.tostring(res.geom))
         h.update(repr(tuple(res.insets)).encode())
-    assert h.hexdigest() == "960f2b51078ff02511a948b9149a848bc6115e88cadcb9b190cd5dd4043b6895"
+    assert h.hexdigest() == "4d479f311b66083924cb97c0935179b731a52e70ed494e442fc11427690f4c9f"
 
 
 @pytest.mark.parametrize("kind,params,aspect", CASES, ids=IDS)
 def test_aspect_bounds(kind, params, aspect):
     lo, hi = S.aspect_bounds(kind, **params)
     assert 0 < lo < hi
-    h = IN
+    h = 3 * IN  # above every min_size: this test is about proportions only
     assert S.fits(kind, h * math.sqrt(lo * hi), h, **params)
     assert not S.fits(kind, h * lo * 0.8, h, **params)
     assert not S.fits(kind, h * hi * 1.25, h, **params)
@@ -133,8 +133,95 @@ def test_drop_proportions():
     geom = S.outline("drop", 630, 1000)
     first = geom[0].subs[0][0]
     assert first[0] == "M" and abs(first[1] - 315) < 1 and abs(first[2]) < 1
-    tilted = S.natural_aspect("drop", tilt=20)
+    tilted = S.natural_aspect("drop", tilt=6)
     assert tilted > nat
+    # the tilt is clamped: past 8 degrees a drop reads as a flame
+    assert S.DROP_MAX_TILT <= 8
+    assert S.natural_aspect("drop", tilt=20) == S.natural_aspect("drop", tilt=S.DROP_MAX_TILT)
+    assert S.natural_aspect("drop", tilt=-20) == S.natural_aspect("drop", tilt=-S.DROP_MAX_TILT)
+
+
+def test_drop_min_size_and_words():
+    """A drop is usable from about 2 in tall at 14 pt (scaled with the font size) and
+    never holds more than 3 words."""
+    nat = S.natural_aspect("drop")
+    mw, mh = S.min_size("drop")
+    assert abs(mh - 2 * IN) < 2 and mw <= int(2 * IN * nat * 1.2)
+    big = (int(2 * IN * nat), 2 * IN)
+    small = (int(1.45 * IN * nat), int(1.45 * IN))
+    assert S.fits("drop", *big)
+    assert not S.fits("drop", *small)  # too small at 14 pt
+    assert S.fits("drop", *small, size_pt=9)  # fine for 9 pt text
+    assert S.min_size("drop", 7)[1] == IN
+    assert S.min_size("rounded") is None
+    assert S.word_limit("drop", big, 14) <= 3
+    assert S.word_limit("drop", (int(4 * IN * nat), 4 * IN), 14) == 3  # even a huge drop
+    assert S.fits("drop", *big, text="Orders held steady")
+    assert not S.fits("drop", *big, text="Orders held steady all year")
+    assert S.fit_words("drop", big, "Orders held steady all year", 14) == "Orders held\u2026" \
+        or S.fit_words("drop", big, "Orders held steady all year", 14) == "Orders held steady\u2026"
+
+
+def test_words_never_broken():
+    text = "Orders held steady through a grey quarter while every lost client got a call."
+    for limit in range(1, len(text) + 5):
+        cut = S.cut_words(text, limit)
+        assert len(cut) <= limit
+        body = cut.rstrip("\u2026")
+        assert text.startswith(body)
+        # whole words only: the cut ends on a word end of the original text
+        assert body == "" or len(body) == len(text) or text[len(body)] in " ,."
+        if cut and cut != text:
+            assert cut.endswith("\u2026")
+    assert S.cut_words(text, 3) == ""  # not even "Orders…": refuse, do not break
+    assert S.cut_words("a  b   c", 10) == "a b c"
+    for kind, box in [("rounded", (2 * IN, IN)), ("circle", (IN, IN)), ("cloud", (int(1.68 * IN), IN))]:
+        for size in (9, 14, 24):
+            out = S.fit_words(kind, box, text, size)
+            words = out.rstrip("\u2026").split()
+            assert words == text.split()[:len(words)]
+            assert len(words) <= S.word_limit(kind, box, size, text=text)
+
+
+def test_longest_word_must_fit():
+    box = (int(1.2 * IN), int(1.2 * IN))
+    assert S.fits("circle", *box, size_pt=12, text="Steady orders")
+    long_word = "Internationalisation"
+    assert S.word_limit("circle", box, 12, text=long_word) == 0
+    assert not S.fits("circle", *box, size_pt=12, text=long_word)
+    assert S.fit_words("circle", box, long_word + " plan", 12) == ""
+    assert S.fits("rounded", 4 * IN, IN, size_pt=12, text=long_word)
+
+
+def test_word_limit_estimate():
+    small = S.word_limit("rounded", (2 * IN, IN), 14)
+    large = S.word_limit("rounded", (4 * IN, 2 * IN), 14)
+    assert 3 <= small < large
+    assert S.word_limit("rounded", (2 * IN, IN), 28) < small
+
+
+def test_bubble_side_tail_default():
+    """Side tails are deeper by default than top and bottom ones (0.3 vs 0.22)."""
+    box = (int(1.75 * IN), IN)
+    a = etree.tostring(S.make_shape("bubble", box, side="left").geom)
+    assert a == etree.tostring(S.make_shape("bubble", box, side="left", tail=0.3).geom)
+    b = etree.tostring(S.make_shape("bubble", (int(1.5 * IN), IN)).geom)
+    assert b == etree.tostring(S.make_shape("bubble", (int(1.5 * IN), IN), tail=0.22).geom)
+    # a deeper tail leaves a narrower body: the safe box starts further right
+    assert S.make_shape("bubble", box, side="left").insets.left > \
+        S.make_shape("bubble", box, side="left", tail=0.22).insets.left
+
+
+def test_handdrawn_second_pass():
+    """The second pencil pass is separate open strokes (one per side), not a closed
+    copy of the outline, and it stays inside the box."""
+    w, h = int(2.4 * IN), int(1.5 * IN)
+    geom = S.outline("handdrawn", w, h, seed=3)
+    assert len(geom) == 2 and geom[0].fill and not geom[1].fill
+    assert len(geom[1].subs) == 4 and all(sub[-1][0] != "Z" for sub in geom[1].subs)
+    x0, y0, x1, y1 = S.bbox(geom)
+    assert x0 >= 0 and y0 >= 0 and x1 <= w and y1 <= h
+    assert len(S.outline("handdrawn", w, h, strokes=1)) == 1
 
 
 def test_errors():
@@ -225,7 +312,7 @@ def test_libreoffice_renders(tmp_path):
 @pytest.mark.skipif(not (CS.soffice() and shutil.which("pdftoppm")), reason="LibreOffice or pdftoppm missing")
 def test_contact_sheet(tmp_path):
     out = CS.build(tmp_path / "sheet.pptx")
-    assert len(Presentation(str(out)).slides) == math.ceil(len(CS.SHEET) / (CS.COLS * CS.ROWS))
+    assert len(Presentation(str(out)).slides) == len(CS._pages())
     png = CS.render(out, tmp_path / "sheet.png", dpi=30)
     assert png and png.exists()
 
@@ -235,3 +322,8 @@ def test_contact_sheet_builds_without_office(tmp_path):
     prs = Presentation(str(out))
     kinds = {shp.name.split(" ")[0] for s in prs.slides for shp in s.shapes if shp.name.split(" ")[0] in S.KINDS}
     assert kinds == set(S.KINDS)
+    for s in prs.slides:  # every shape on the sheet is at least its kind's minimum size
+        for shp in s.shapes:
+            kind = shp.name.split(" ")[0]
+            if kind in S.KINDS and S.min_size(kind) is not None:
+                assert shp.height >= S.min_size(kind, 9)[1] - 2

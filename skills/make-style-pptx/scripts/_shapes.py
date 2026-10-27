@@ -9,13 +9,16 @@ box, so text never spills out of a drop, a cloud or a speech bubble.
 
 Entry point for the restyler::
 
-    geom, insets = make_shape("drop", (x, y, w, h), tilt=12)
+    geom, insets = make_shape("drop", (x, y, w, h), tilt=6)
 
 ``geom`` is an ``a:custGeom`` lxml element (its text rectangle is already set to
 the safe box), ``insets`` the safe text box as EMU insets from the shape box.
-``add_shape`` puts one on a python-pptx slide. ``fits`` and ``aspect_bounds`` say
-which box proportions a shape accepts without looking distorted; ``char_limit``
-turns a text box into a character limit with the style contract formula.
+``add_shape`` puts one on a python-pptx slide. ``fits`` says whether a shape can be used at a box (aspect bounds, the kind's
+``min_size`` at the font size, and, given the text, whole words only);
+``aspect_bounds`` gives the proportions it accepts without looking distorted;
+``char_limit`` turns a text box into a character limit with the style contract
+formula, ``word_limit`` into a whole-word limit, and ``fit_words`` / ``cut_words``
+cut text at word boundaries, never mid-word.
 
 Coordinates are EMU (914,400 per inch), y pointing down. Only the standard library,
 lxml and Pillow are used; output is deterministic (same parameters, same bytes).
@@ -265,10 +268,13 @@ def _circle_geo(w, h, **_):
     return [Path(pen.subs)]
 
 
+DROP_MAX_TILT = 8.0  # beyond this a leaning drop reads as a flame
+
+
 def _drop_geo(tilt=0.0, body=0.63, tip=0.5, **_):
     """Teardrop, tip up. ``body``: diameter of the round body over the total height
     (0.55 to 0.75); ``tip``: 0 for a blunt tip, 1 for a needle-sharp one; ``tilt``:
-    degrees, positive leans the tip to the right.
+    degrees, positive leans the tip to the right, clamped to +/- DROP_MAX_TILT.
 
     The sides leave the tip, swell outwards (convex, as surface tension would draw
     them) and meet the body at its widest point with a vertical tangent, so the outline
@@ -288,6 +294,7 @@ def _drop_geo(tilt=0.0, body=0.63, tip=0.5, **_):
     pen.arc(0, cy, r, r, 0, math.pi)
     pen.curve(-r, cy - d2, -d1 * math.sin(beta), d1 * math.cos(beta), 0, 0)
     geom = [Path(pen.close().subs)]
+    tilt = max(-DROP_MAX_TILT, min(DROP_MAX_TILT, float(tilt)))
     return _rotate(geom, tilt) if tilt else geom
 
 
@@ -399,9 +406,13 @@ def _bubble_bottom(w, h, pos, tail, radius, lean):
     return [Path(pen.subs)]
 
 
-def _bubble_geo(w, h, side="bottom", pos=0.25, tail=0.22, radius=0.22, lean=-0.6, **_):
+def _bubble_geo(w, h, side="bottom", pos=0.25, tail=None, radius=0.22, lean=-0.6, **_):
     """Speech bubble. ``side``: where the tail is; ``pos`` (0..1) along that side;
-    ``tail``: tail depth over the box; ``lean`` (-1..1): tip offset along the side."""
+    ``tail``: tail depth over the shorter side of the box (default 0.22 on top or
+    bottom, 0.3 on the left or right, where a short tail looks stunted);
+    ``lean`` (-1..1): tip offset along the side."""
+    if tail is None:
+        tail = 0.3 if side in ("left", "right") else 0.22
     if not 0 <= pos <= 1 or not 0.1 <= tail <= 0.4 or not -1 <= lean <= 1:
         raise ShapeError("bubble: pos 0..1, tail 0.1..0.4, lean -1..1")
     if side == "bottom":
@@ -488,42 +499,63 @@ def _polygon_geo(sides=6, rounding=0.12, **_):
     return [Path(pen.close().subs)]
 
 
-def _wobbly_outline(rnd, w, h, r, amp):
-    """Points around a rounded rectangle, nudged by a slow random drift (not white
-    noise), the way a steady hand wanders."""
-    per = 0.16 * min(w, h) + 0.06 * max(w, h)
-    pts = []
-    drift = 0.0
-    sides = [((r, 0), (w - r, 0), (0, -1), (w - r, r, -math.pi / 2)),
-             ((w, r), (w, h - r), (1, 0), (w - r, h - r, 0)),
-             ((w - r, h), (r, h), (0, 1), (r, h - r, math.pi / 2)),
-             ((0, h - r), (0, r), (-1, 0), (r, r, math.pi))]
-    for (sx, sy), (ex, ey), (nx, ny), (cx, cy, a0) in sides:
-        n = max(2, int(round(math.hypot(ex - sx, ey - sy) / per)))
-        for i in range(n + 1):
-            t = i / n
-            drift = 0.55 * drift + 0.45 * (rnd.random() - 0.5) * 2
-            j = drift * amp
-            pts.append((sx + (ex - sx) * t + nx * j, sy + (ey - sy) * t + ny * j))
-        a = a0 + math.pi / 4
-        pts.append((cx + (r + drift * amp * 0.5) * math.cos(a), cy + (r + drift * amp * 0.5) * math.sin(a)))
-    return pts
+def _sketch_side(pen: Pen, rnd: random.Random, p0, p1, amp: float, start: bool) -> None:
+    """One side of a sketch from p0 to p1: a single slow bow (one or two bumps), the
+    way a quick pen stroke wanders, never fine noise."""
+    (x0, y0), (x1, y1) = p0, p1
+    dx, dy = x1 - x0, y1 - y0
+    ln = math.hypot(dx, dy) or 1.0
+    nx, ny = -dy / ln, dx / ln
+    b1, b2 = (rnd.random() - 0.5) * 2 * amp, (rnd.random() - 0.5) * 2 * amp
+    t1, t2 = 0.25 + 0.15 * rnd.random(), 0.6 + 0.15 * rnd.random()
+    if start:
+        pen.move(x0, y0)
+    pen.curve(x0 + dx * t1 + nx * b1, y0 + dy * t1 + ny * b1, x0 + dx * t2 + nx * b2, y0 + dy * t2 + ny * b2, x1, y1)
 
 
-def _handdrawn_geo(w, h, seed=0, jitter=0.012, strokes=2, radius=0.08, **_):
-    """Hand-drawn card: a gently wandering outline, plus (``strokes=2``) a second loose
-    pencil line, outline only, that does not quite follow the first."""
+def _handdrawn_geo(w, h, seed=0, jitter=0.03, strokes=2, overshoot=0.5, **_):
+    """Hand-drawn card, sketched with a pen. The filled outline has four slightly crooked
+    corners joined by slow bows. With ``strokes=2`` a second pencil pass, outline only,
+    draws each side again as a separate stroke: offset from the first, at a slightly
+    different angle (not parallel) and running past the corners (``overshoot``, 0..1),
+    as quick sketches do. Where the two passes meet the line looks thicker.
+    ``jitter``: wobble amplitude over the shorter side (0..0.05)."""
     if strokes not in (1, 2):
         raise ShapeError("handdrawn: strokes must be 1 or 2")
-    if not 0 <= jitter <= 0.04:
-        raise ShapeError("handdrawn: jitter must be between 0 and 0.04")
+    if not 0 <= jitter <= 0.05:
+        raise ShapeError("handdrawn: jitter must be between 0 and 0.05")
+    if not 0 <= overshoot <= 1:
+        raise ShapeError("handdrawn: overshoot must be between 0 and 1")
     rnd = random.Random(int(seed))
     m = min(w, h)
-    amp = jitter * m + 0.003 * max(w, h)
-    r = max(radius * m, 2.5 * amp)
-    geom = [Path([_smooth_closed(_wobbly_outline(rnd, w, h, r, amp))])]
+    amp = jitter * m + 0.004 * max(w, h)
+    over = overshoot * 3 * amp  # how far the second pass runs past a corner
+    mg = max(over + amp, 2.8 * amp)  # margin that keeps every stroke inside the box
+
+    def corner(x, y):
+        return x + (rnd.random() - 0.5) * 1.6 * amp, y + (rnd.random() - 0.5) * 1.6 * amp
+
+    cs = [corner(mg, mg), corner(w - mg, mg), corner(w - mg, h - mg), corner(mg, h - mg)]
+    pen = Pen()
+    for i in range(4):
+        _sketch_side(pen, rnd, cs[i], cs[(i + 1) % 4], amp, i == 0)
+    geom = [Path(pen.close().subs)]
     if strokes == 2:
-        geom.append(Path([_smooth_closed(_wobbly_outline(rnd, w, h, r, amp * 1.3))], fill=False, stroke=True))
+        pen2 = Pen()
+        for i in range(4):
+            (ax, ay), (bx, by) = cs[i], cs[(i + 1) % 4]
+            dx, dy = bx - ax, by - ay
+            ln = math.hypot(dx, dy) or 1.0
+            ux, uy, nx, ny = dx / ln, dy / ln, -dy / ln, dx / ln
+            # each end gets its own offset, so the two passes are never parallel
+            o0 = (0.4 + 0.8 * rnd.random()) * amp * (1 if rnd.random() < 0.5 else -1)
+            o1 = (0.4 + 0.8 * rnd.random()) * amp * (1 if rnd.random() < 0.5 else -1)
+            e0 = over * (0.5 + 0.5 * rnd.random())
+            e1 = over * (0.5 + 0.5 * rnd.random())
+            p0 = (ax - ux * e0 + nx * o0, ay - uy * e0 + ny * o0)
+            p1 = (bx + ux * e1 + nx * o1, by + uy * e1 + ny * o1)
+            _sketch_side(pen2, rnd, p0, p1, amp * 0.8, True)
+        geom.append(Path(pen2.subs, fill=False, stroke=True))
     return geom
 
 
@@ -574,7 +606,11 @@ class Kind(NamedTuple):
     tolerance: float = 1.25  # allowed stretch from the natural proportion (design shapes)
     pad: float = 0.04  # breathing room around the text box, share of the shorter side
     text_min: float = 0.0  # narrowest text box allowed (w / h): keeps text boxes usable in tall shapes
+    min_size: Optional[Tuple[float, float]] = None  # smallest usable (w, h) in inches for 14 pt text
+    max_words: Optional[int] = None  # most words the shape should ever hold, whatever its size
 
+
+REFERENCE_PT = 14.0  # font size that min_size is given for; it scales with the font size
 
 KINDS: Dict[str, Kind] = {
     "rectangle": Kind(_rect_geo, True, (0.1, 10.0), pad=0.06),
@@ -582,7 +618,8 @@ KINDS: Dict[str, Kind] = {
     "pill": Kind(_pill_geo, True, (1.8, 12.0)),
     "ellipse": Kind(_ellipse_geo, True, (0.5, 2.5)),
     "circle": Kind(_circle_geo, True, (0.8, 1.25)),
-    "drop": Kind(_drop_geo, False, None, 1.2, text_min=0.9),
+    # a drop holds a few words, never a sentence: below 2 in (at 14 pt) words break
+    "drop": Kind(_drop_geo, False, None, 1.2, text_min=1.2, min_size=(1.2, 2.0), max_words=3),
     "cloud": Kind(_cloud_geo, False, None, 1.3),
     "blob": Kind(_blob_geo, False, None, 1.6, text_min=0.9),
     "ticket": Kind(_ticket_geo, True, (1.3, 5.0)),
@@ -625,18 +662,50 @@ def aspect_bounds(kind: str, **params) -> Tuple[float, float]:
     return nat / k.tolerance, nat * k.tolerance
 
 
-def fits(kind: str, w: float, h: float, **params) -> bool:
-    """True when a w x h box keeps the shape within its aspect bounds."""
+def _aspect_ok(kind: str, w: float, h: float, **params) -> bool:
     if w <= 0 or h <= 0:
         return False
     lo, hi = aspect_bounds(kind, **params)
     return lo - 1e-9 <= w / h <= hi + 1e-9
 
 
+def min_size(kind: str, size_pt: float = REFERENCE_PT) -> Optional[Tuple[int, int]]:
+    """Smallest usable (w, h) in EMU of a shape for text at ``size_pt``, or None when
+    the kind has no minimum. Below it words would break mid-word."""
+    ms = _kind(kind).min_size
+    if ms is None:
+        return None
+    f = size_pt / REFERENCE_PT
+    return int(round(ms[0] * EMU_PER_INCH * f)), int(round(ms[1] * EMU_PER_INCH * f))
+
+
+def fits(kind: str, w: float, h: float, *, size_pt: float = REFERENCE_PT, text: Optional[str] = None,
+         char_em: float = 0.52, caps: bool = False, **params) -> bool:
+    """True when the shape can be used at a w x h box (EMU) for text at ``size_pt``:
+    the box keeps the shape within its aspect bounds and is at least the kind's
+    ``min_size``. With ``text``, the whole text must also fit the safe text box with
+    whole words only: no word wider than a line, no more words than ``word_limit``."""
+    if not _aspect_ok(kind, w, h, **params):
+        return False
+    ms = min_size(kind, size_pt)
+    if ms is not None and (w < ms[0] - 1 or h < ms[1] - 1):
+        return False
+    if text is None:
+        return True
+    words = text.split()
+    if not words:
+        return True
+    try:
+        n = word_limit(kind, (w, h), size_pt, text=text, char_em=char_em, caps=caps, **params)
+    except ShapeError:
+        return False
+    return n >= len(words)
+
+
 def outline(kind: str, w: float, h: float, *, strict: bool = True, **params) -> Geometry:
     """The geometry of a shape sized w x h (EMU), as Path tuples."""
     k = _kind(kind)
-    if strict and not fits(kind, w, h, **params):
+    if strict and not _aspect_ok(kind, w, h, **params):
         lo, hi = aspect_bounds(kind, **params)
         raise ShapeError(f"{kind}: box {w / h:.2f}:1 outside its aspect bounds {lo:.2f} to {hi:.2f}")
     if k.box:
@@ -731,7 +800,8 @@ def safe_insets(geom: Geometry, w: float, h: float, pad: float = 0.04, text_min:
 def char_limit(w_emu: float, h_emu: float, size_pt: float, char_em: float = 0.52, caps: bool = False) -> int:
     """Characters that fit a text box, with the style contract formula:
     per line = floor(width pt / (size x char_em)), lines = floor(height pt / (size x 1.2)),
-    limit = max(4, floor(per line x lines x 0.85)); char_em x 1.2 for text in capitals."""
+    limit = max(4, floor(per line x lines x 0.85)); char_em x 1.2 for text in capitals.
+    A budget only: cut text with ``cut_words`` or ``fit_words``, never mid-word."""
     em = char_em * (1.2 if caps else 1.0)
     per_line = math.floor((w_emu / EMU_PER_PT) / (size_pt * em))
     lines = math.floor((h_emu / EMU_PER_PT) / (size_pt * 1.2))
@@ -743,6 +813,99 @@ def text_limit(kind: str, box, size_pt: float, char_em: float = 0.52, caps: bool
     w, h = _wh(box)
     ins = make_shape(kind, box, **params).insets
     return char_limit(w - ins.left - ins.right, h - ins.top - ins.bottom, size_pt, char_em, caps)
+
+
+ELLIPSIS = "\u2026"
+WORD_SAFETY = 1.15  # a single word is measured wider than average text: no average to lean on
+
+
+def cut_words(text: str, limit: int) -> str:
+    """``text`` cut to at most ``limit`` characters at a word boundary, with an
+    ellipsis when something was cut. Never breaks a word: returns "" when even the
+    first word (plus the ellipsis) is too long."""
+    words = text.split()
+    if len(" ".join(words)) <= limit:
+        return " ".join(words)
+    out = ""
+    for wd in words:
+        cand = (out + " " + wd) if out else wd
+        if len(cand.rstrip(",;:.")) + 1 > limit:
+            break
+        out = cand
+    return out.rstrip(",;:.") + ELLIPSIS if out else ""
+
+
+def _wrap_count(words: Sequence[str], w_emu: float, h_emu: float, size_pt: float, char_em: float,
+                caps: bool) -> int:
+    """How many leading words a greedy line wrap places in the box without breaking one."""
+    em = char_em * (1.2 if caps else 1.0)
+    width = w_emu / EMU_PER_PT
+    lines = math.floor((h_emu / EMU_PER_PT) / (size_pt * 1.2))
+    unit = size_pt * em
+
+    def wide(s):
+        return len(s) * unit
+
+    line, used, n = "", 1, 0
+    if lines < 1:
+        return 0
+    for wd in words:
+        if wide(wd.rstrip(ELLIPSIS)) * WORD_SAFETY + wide(wd) - wide(wd.rstrip(ELLIPSIS)) > width:
+            break  # this word would have to be broken (a trailing ellipsis is narrow, no margin)
+        cand = (line + " " + wd) if line else wd
+        if wide(cand) <= width:
+            line = cand
+        else:
+            if used == lines:
+                break
+            used, line = used + 1, wd
+        n += 1
+    return n
+
+
+def _safe_wh(kind: str, box, **params) -> Tuple[int, int]:
+    w, h = _wh(box)
+    ins = make_shape(kind, box, strict=False, **params).insets
+    return w - ins.left - ins.right, h - ins.top - ins.bottom
+
+
+def word_limit(kind: str, box, size_pt: float, *, text: Optional[str] = None, char_em: float = 0.52,
+               caps: bool = False, **params) -> int:
+    """Whole words the safe text box of a shape holds at ``size_pt``, capped by the
+    kind's ``max_words`` and by the character limit.
+
+    With ``text``: how many of its leading words fit (greedy line wrap, no word ever
+    broken; 0 when the first word is wider than a line). Without: an estimate for
+    average words of 6 characters (5 letters and a space). The restyler refuses text
+    with more words than this rather than letting PowerPoint break one."""
+    tw, th = _safe_wh(kind, box, **params)
+    cap = _kind(kind).max_words
+    limit = char_limit(tw, th, size_pt, char_em, caps)
+    if text is None:
+        words = ["abcde"] * 200
+    else:
+        words = text.split()
+    n = _wrap_count(words, tw, th, size_pt, char_em, caps)
+    while n and len(" ".join(words[:n])) > limit:
+        n -= 1
+    return min(n, cap) if cap is not None else n
+
+
+def fit_words(kind: str, box, text: str, size_pt: float, *, char_em: float = 0.52, caps: bool = False,
+              **params) -> str:
+    """``text`` cut to what the safe text box of the shape holds: whole words only, an
+    ellipsis when cut, "" when not even one word fits."""
+    words = text.split()
+    n = word_limit(kind, box, size_pt, text=text, char_em=char_em, caps=caps, **params)
+    if n >= len(words):
+        return " ".join(words)
+    tw, th = _safe_wh(kind, box, **params)
+    while n > 0:  # the ellipsis must fit too
+        out = " ".join(words[:n]).rstrip(",;:.") + ELLIPSIS
+        if _wrap_count(out.split(), tw, th, size_pt, char_em, caps) == len(out.split()):
+            return out
+        n -= 1
+    return ""
 
 
 # --------------------------------------------------------------- output
