@@ -1,0 +1,65 @@
+# Restyler
+
+`scripts/restyle.py` swaps the geometry of the role-tagged containers of a Make_Clean library or deck for shapes of the shapes library (`_shapes.py`). It works on the interface described in Make_Clean's `references/style-contract.md` (role tags, `role=` flags, per-pack limits) and needs only python-pptx, lxml and Pillow.
+
+```
+python scripts/restyle.py <library folder> --style organic [--out <pack folder>]
+python scripts/restyle.py deck.pptx --style paper [--out deck-paper.pptx]
+python scripts/restyle_sheet.py <library folder> --style organic     # before/after PNG in docs/
+```
+
+The input is never written. A library gives a **style pack** folder that Make_Clean builds with as is (`build_deck.py --local-dir <pack>`):
+
+| File | What it holds |
+|---|---|
+| `layouts.pptx`, `visuals.pptx` | the restyled libraries: same slides, same ids, same shape names |
+| `layouts.csv`, `visuals.csv` | the indexes, byte-identical except the lowered `limit` of the fields that moved into a smaller text box |
+| `theme-contract.json`, `style.json` | copied from the input when present |
+| `restyle.json` | the style definition used |
+| `restyle-report.json` | every container: restyled (with its shape, parameters, new limits and word limits), fallback (with the reason of each candidate), text-heavy, out of scope or kept |
+
+A deck gives `<deck>-<style>.pptx` and `<deck>-<style>.report.json`.
+
+## Style definition
+
+A JSON file in `styles/` (or anywhere, passed by path):
+
+```json
+{
+  "name": "organic",
+  "seed": 11,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {"shapes": [
+      {"kind": "blob", "params": {"seed": "auto", "wobble": 0.07}, "margin": 0.04},
+      {"kind": "rounded", "params": {"radius": 0.3}}
+    ]}
+  },
+  "arrangement": null,
+  "ambience": null
+}
+```
+
+- `roles`: for `card`, `callout`, `keyfigure`, `label`, `panel` and `decoration`, the candidate shapes in order of preference. A role that is missing is left alone. `logo` and `frame` are refused: they are never restyled.
+- Candidate keys: `kind` (a shapes library kind) and `params` (its parameters; `"seed": "auto"` gives each container its own stable seed, `"edges": "auto"` tears the edges of a panel that face the slide); `keep` (overrides the style's); `margin` (room kept around the shape, share of the shorter side, so pebbles do not touch their neighbours); `align: "center"` (centres the text it holds); `stroke` and `stroke_pt` (line colour as a theme colour name and width, for hand-drawn shapes whose pencil strokes need a line); `any_aspect` (draws the shape at the box's proportions, for torn bands of any length).
+- `keep`: the least share of a field's character limit that the new text box must keep (0.6 = a 100-character field may drop to 60, not below).
+- `max_chars`: containers whose fields add up to more characters are text-heavy and keep their standard shape. A role can set its own.
+- `scope`: which rows are restyled (default: layouts of density `Low` or `Medium`, never `Table` or `Frame`; visuals of kind `diagram` or `timeline`, never charts, tables, matrices or illustrations).
+- `seed`, `min_cover` (how much of the box a shape must keep when shrunk to its proportions, default 0.85), `padding` (share of the container's original inner margin kept around the text, default 0.75), `min_chars_per_line` (default 10).
+- `arrangement` and `ambience`: the later layers (#1607, #1608). Accepted and recorded in the report as not applied.
+
+## What happens to one container
+
+1. The container's box is shrunk (centred) to the shape's aspect bounds when needed; the shape is built there and its safe text box computed, pulled in to keep the container's original inner margin.
+2. The text fields inside the container (and the rules or ornaments among them) are moved into the safe box: untouched when they already fit, else shifted the least possible; when too tall, a vertical stack first gives up its gaps and the empty room under each text.
+3. Each field is checked at its own font size: at least one line, no word broken, the template text (in a deck: the real text) still fits, at least `min_chars_per_line` per line, and the new character limit (the style contract formula) keeps `keep` of the old one. Fonts are never changed.
+4. Only when every field passes is the geometry swapped (`a:custGeom`, fill, line and theme colours unchanged) and the fields moved; otherwise the next candidate is tried. When none passes, the container keeps its standard shape and the report says why.
+
+Same input and same style give the same bytes (fixed zip timestamps, seeds from the layout id and shape name).
+
+## Limits
+
+- **Word limits** are computed for every moved field and written in `restyle-report.json` (`words`). The index schema of Make_Clean has no word-limit flag yet, so they are not in the CSV.
+- Fields inside the container are found by geometry (their box inside the container's box). Containers nested in another (a card in a lane) are never moved; the outer shape falls back when they would stick out.
+- In a deck, roles come from the shape names only: fields that are also containers (`role=` flags in the index) are not recognised, and slides with a chart or a table are left alone.
