@@ -1,0 +1,30 @@
+{
+  "name": "paper",
+  "description": "Paper and pencil: cards are torn sheets, callouts tickets, key figures and labels sketched by hand, side panels get a torn edge where they meet the slide.",
+  "seed": 29,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {"shapes": [
+      {"kind": "torn", "params": {"seed": "auto", "edges": "bottom", "depth": 0.06}},
+      {"kind": "handdrawn", "params": {"seed": "auto", "jitter": 0.02}, "stroke": "tx2", "stroke_pt": 1}
+    ]},
+    "callout": {"shapes": [
+      {"kind": "ticket", "params": {"notch": 0.12}},
+      {"kind": "torn", "params": {"seed": "auto", "edges": "top+bottom", "depth": 0.05}},
+      {"kind": "handdrawn", "params": {"seed": "auto", "jitter": 0.02}, "stroke": "tx2", "stroke_pt": 1}
+    ]},
+    "keyfigure": {"shapes": [
+      {"kind": "handdrawn", "params": {"seed": "auto", "jitter": 0.025}, "stroke": "tx2", "stroke_pt": 1, "align": "center"},
+      {"kind": "ticket", "params": {"style": "corners"}, "align": "center"}
+    ]},
+    "label": {"shapes": [
+      {"kind": "handdrawn", "params": {"seed": "auto", "jitter": 0.03, "strokes": 1}}
+    ]},
+    "panel": {"max_chars": 1000, "shapes": [
+      {"kind": "torn", "params": {"seed": "auto", "edges": "auto", "depth": 0.04}, "any_aspect": true}
+    ]}
+  },
+  "arrangement": null,
+  "ambience": null
+}

@@ -1,0 +1,31 @@
+{
+  "name": "organic",
+  "description": "Soft and organic: cards become pebbles, callouts clouds, key figures round discs, labels circles or pills. Panels and rules stay as they are.",
+  "seed": 11,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {"shapes": [
+      {"kind": "blob", "params": {"seed": "auto", "wobble": 0.07}, "margin": 0.04},
+      {"kind": "rounded", "params": {"radius": 0.3}}
+    ]},
+    "callout": {"shapes": [
+      {"kind": "cloud", "params": {"lobes": 3}, "keep": 0.35},
+      {"kind": "blob", "params": {"seed": "auto", "wobble": 0.06}},
+      {"kind": "pill"},
+      {"kind": "rounded", "params": {"radius": 0.35}}
+    ]},
+    "keyfigure": {"shapes": [
+      {"kind": "circle", "align": "center"},
+      {"kind": "blob", "params": {"seed": "auto", "wobble": 0.05}, "align": "center"},
+      {"kind": "rounded", "params": {"radius": 0.35}}
+    ]},
+    "label": {"shapes": [
+      {"kind": "circle"},
+      {"kind": "pill"},
+      {"kind": "rounded", "params": {"radius": 0.4}}
+    ]}
+  },
+  "arrangement": null,
+  "ambience": null
+}

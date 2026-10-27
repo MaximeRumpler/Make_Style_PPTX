@@ -19,22 +19,38 @@ jobs:
         python-version: ["3.9", "3.12"]
     steps:
       - uses: actions/checkout@v7
+      # Make_Clean at a pinned release, for the round trip test (restyled pack -> build_deck -> lint)
+      - uses: actions/checkout@v7
+        with:
+          repository: MaximeRumpler/Make_Clean_PPTX
+          ref: v1.1.0
+          path: make-clean
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: requirements-dev.txt
-      - run: pip install -r requirements-dev.txt
+      - run: pip install -r requirements-dev.txt -r make-clean/skills/make-clean-pptx/requirements.txt
       - run: pytest
+        env:
+          MAKE_CLEAN_DIR: make-clean
 
   render:
     # Same suite with LibreOffice present, so the render tests run too.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Make_Clean at a pinned release, for the round trip test (restyled pack -> build_deck -> lint)
+      - uses: actions/checkout@v7
+        with:
+          repository: MaximeRumpler/Make_Clean_PPTX
+          ref: v1.1.0
+          path: make-clean
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libreoffice-impress poppler-utils fonts-liberation
-      - run: pip install -r requirements-dev.txt
+      - run: pip install -r requirements-dev.txt -r make-clean/skills/make-clean-pptx/requirements.txt
       - run: pytest
+        env:
+          MAKE_CLEAN_DIR: make-clean
