@@ -19,3 +19,11 @@ not subject to the obligations of the EUPL. You may use, modify, distribute and
 license them as you wish, with no attribution required. The copyleft applies to
 the software itself, not to the decks and styles you make with it.
 
+
+
+THIRD-PARTY MATERIAL
+--------------------
+skills/make-style-pptx/assets/icons/ holds a few icons from Phosphor Icons
+(MIT, Copyright (c) 2023 Phosphor Icons) and Tabler Icons (MIT, Copyright (c)
+2020-2026 Pawel Kuna), each with its licence file. skills/make-style-pptx/scripts/_svg.py
+is vendored from Make_Clean_PPTX (same author, EUPL-1.2).

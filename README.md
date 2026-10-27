@@ -43,6 +43,8 @@ Each one works on its own; together they take you from raw notes to a finished, 
 
 In preparation. Follow [Make_Clean_PPTX](https://github.com/MaximeRumpler/Make_Clean_PPTX) for updates; the first release will be announced there.
 
+First brick in place: the **shapes library** (`skills/make-style-pptx/scripts/_shapes.py`). Drops, clouds, blobs, tickets, speech bubbles, torn paper, polygons, hand-drawn cards and filled icons become native, editable PowerPoint shapes drawn with smooth curves, each with the safe box where its text goes. See them all at three sizes in the [contact sheet](docs/shapes-contact-sheet.png) (rebuild it with `python skills/make-style-pptx/scripts/contact_sheet.py`).
+
 * * *
 
 ## License
