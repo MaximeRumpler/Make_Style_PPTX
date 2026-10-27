@@ -16,7 +16,7 @@ IN = S.EMU_PER_INCH
 
 # every kind with its defaults, plus every variant drawn on the contact sheet
 DEFAULT_ASPECT = {"rectangle": 1.6, "rounded": 1.5, "pill": 3.0, "ellipse": 1.4, "circle": 1.0, "ticket": 2.0,
-                  "bubble": 1.5, "torn": 1.3, "handdrawn": 1.5}
+                  "bubble": 1.5, "torn": 1.3, "handdrawn": 1.5, "pebble": 2.0}
 CASES = [(k, {"svg": CS.SHEET[-1][2]["svg"]} if k == "icon" else {}, DEFAULT_ASPECT.get(k)) for k in S.kinds()]
 CASES += [(kind, params, aspect) for _, kind, params, aspect in CS.SHEET]
 IDS = [f"{k}-{i}" for i, (k, _, _) in enumerate(CASES)]
@@ -78,7 +78,8 @@ def test_safe_box_inside_geometry(kind, params, aspect):
         for x, y in poly:
             assert not (x0 < x < x1 and y0 < y < y1), f"{kind}: outline point inside the text box"
     # and the box is worth having: a real share of the shape
-    assert (x1 - x0) * (y1 - y0) > 0.12 * w * h
+    # (a diamond's largest inner rectangle is a quarter of its box, before the padding)
+    assert (x1 - x0) * (y1 - y0) > (0.08 if params.get("form") == "diamond" else 0.12) * w * h
 
 
 @pytest.mark.parametrize("kind,params,aspect", CASES, ids=IDS)
@@ -90,12 +91,40 @@ def test_deterministic(kind, params, aspect):
     assert S.make_shape(kind, box, **params).insets == S.make_shape(kind, box, **params).insets
 
 
-@pytest.mark.parametrize("kind", ["blob", "torn", "handdrawn"])
+@pytest.mark.parametrize("kind", ["blob", "pebble", "torn", "handdrawn"])
 def test_seed_changes_shape(kind):
     box = box_for(kind, {}, DEFAULT_ASPECT.get(kind))
     a = etree.tostring(S.make_shape(kind, box, seed=1).geom)
     b = etree.tostring(S.make_shape(kind, box, seed=2).geom)
     assert a != b
+
+
+def test_pinned_bytes_new_kinds():
+    """Pebble and the hand-drawn diamond, pinned like the others."""
+    import hashlib
+
+    h = hashlib.sha256()
+    for kind, params, aspect in [("pebble", {"seed": 3}, 2.2), ("pebble", {"seed": 8, "squareness": 3}, 1.2),
+                                 ("handdrawn", {"seed": 3, "form": "diamond", "strokes": 1}, 1.0)]:
+        res = S.make_shape(kind, (0, 0, int(1.5 * IN * aspect), int(1.5 * IN)), **params)
+        h.update(etree.tostring(res.geom))
+        h.update(repr(tuple(res.insets)).encode())
+    assert h.hexdigest() == "abebefc7e539456070cdb72d0a256c68b3af450ac32ed9ef28dc6386780ecd66"
+
+
+def test_pebble_reads_as_a_stone():
+    """Long sides flatter than an ellipse's, bulges sized on the shorter side, wide text box."""
+    w, h = int(5 * IN), int(2 * IN)
+    res = S.make_shape("pebble", (w, h), seed=4)
+    ins = res.insets
+    ell = S.make_shape("ellipse", (w, h)).insets
+    assert (w - ins.left - ins.right) * (h - ins.top - ins.bottom) > (w - ell.left - ell.right) * (h - ell.top - ell.bottom)
+    lo, hi = S.aspect_bounds("pebble")
+    assert lo < 0.5 and hi >= 2.5
+    with pytest.raises(S.ShapeError):
+        S.make_shape("pebble", (w, h), wobble=0.3)
+    with pytest.raises(S.ShapeError):
+        S.make_shape("handdrawn", (w, h), form="star")
 
 
 def test_pinned_bytes():

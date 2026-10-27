@@ -70,6 +70,9 @@ DEFAULT_SCOPE = {
     "layouts": {"density": ["Low", "Medium"], "exclude_categories": ["Table", "Frame"]},
     "visuals": {"kinds": ["diagram", "timeline"]},
 }
+# round silhouettes: the text they hold is centred as a group (top-left in a pebble
+# reads as a mistake); rectangles, tickets, torn and hand-drawn cards keep their layout
+CENTRED_KINDS = ("blob", "pebble", "drop", "circle", "cloud", "ellipse")
 HOOKS = ("arrangement", "ambience")  # later layers (#1607, #1608): accepted, reported, not applied
 
 
@@ -420,6 +423,68 @@ def set_box(sh, b) -> None:
     sh.left, sh.top, sh.width, sh.height = (int(v) for v in b)
 
 
+def square_box(b, min_cover: float):
+    """The box shrunk (centred) towards a square, never below ``min_cover`` of its longer side."""
+    x, y, w, h = b
+    if h > w:
+        nh = max(w, math.ceil(h * min_cover))
+        return x, y + (h - nh) // 2, w, nh
+    if w > h:
+        nw = max(h, math.ceil(w * min_cover))
+        return x + (w - nw) // 2, y, nw, h
+    return b
+
+
+def centre_boxes(boxes, safe):
+    """The boxes moved together so their union sits in the middle of the safe box."""
+    if not boxes:
+        return boxes
+    ux0 = min(b[0] for b in boxes)
+    uy0 = min(b[1] for b in boxes)
+    ux1 = max(b[0] + b[2] for b in boxes)
+    uy1 = max(b[1] + b[3] for b in boxes)
+    dx = round(safe[0] + safe[2] / 2 - (ux0 + ux1) / 2)
+    dy = round(safe[1] + safe[3] / 2 - (uy0 + uy1) / 2)
+    return [(x + dx, y + dy, w, h) for x, y, w, h in boxes]
+
+
+def compact(boxes, held, results, check):
+    """Stacked fields in a round shape: each text box loses the height its character
+    limit does not need (same limit, same words), and the stack closes up keeping its
+    gaps, so the group can sit in the middle of the shape. Ornaments keep their size."""
+    out = list(boxes)
+    for i, sh in enumerate(held):
+        x, y, w, h = out[i]
+        size = font_info(sh, {"heading": 0.52, "body": 0.52})[0]
+        step = int(size * 1.2 * S.EMU_PER_PT)
+        want = results[sh.name]
+        nh = h
+        while nh - step > 0:  # drop one line at a time while the limit and words hold
+            r = check(sh, (x, y, w, nh - step))
+            if not r["ok"] or r["limit"] != want["limit"] or r["words"] != want["words"]:
+                break
+            nh -= step
+        out[i] = (x, y, w, nh)
+    order = sorted(range(len(boxes)), key=lambda i: (boxes[i][1], boxes[i][0]))
+    stacked = all(boxes[b][1] >= boxes[a][1] + boxes[a][3] - TOL for a, b in zip(order, order[1:]))
+    if not stacked:
+        return out
+    y = boxes[order[0]][1]
+    for k, i in enumerate(order):
+        if k:
+            a = order[k - 1]
+            y += max(0, boxes[i][1] - (boxes[a][1] + boxes[a][3]))
+        out[i] = (out[i][0], y, out[i][2], out[i][3])
+        y += out[i][3]
+    return out
+
+
+def anchor_middle(sh) -> None:
+    bp = sh._element.find(".//" + A + "bodyPr")
+    if bp is not None:
+        bp.set("anchor", "ctr")
+
+
 def center_text(sh) -> None:
     for p in sh._element.iter(A + "p"):
         ppr = p.find(A + "pPr")
@@ -470,6 +535,10 @@ def restyle_container(ctx: Ctx, cont, role: str, row_id: str, coll, text_fields:
             params["seed"] = _seed(style, row_id, cont.name)
         if kind == "torn" and params.get("edges") == "auto":
             params["edges"] = torn_edges(cb, ctx.slide_wh)
+        if kind == "handdrawn" and params.get("form") == "auto":
+            params["form"] = "diamond" if prst(cont) == "diamond" else "rect"
+            if params["form"] == "diamond":
+                params.setdefault("pad", 0.0)  # the text box of a diamond is already its middle half
         why = _try(ctx, cont, kind, params, cand, cb, held, nested, ornaments, texts, text_fields, self_text, size,
                    linked)
         if isinstance(why, dict):
@@ -491,6 +560,8 @@ def _try(ctx, cont, kind, params, cand, cb, held, nested, ornaments, texts, text
         if margin:  # breathing room: a pebble that bulges to its box touches its neighbours
             mm = int(margin * min(cb[2], cb[3]))
             b = (cb[0] + mm, cb[1] + mm, cb[2] - 2 * mm, cb[3] - 2 * mm)
+        if cand.get("square"):  # a key figure reads as a disc, not a tall oval
+            b = square_box(b, style["min_cover"])
         free = bool(cand.get("any_aspect"))  # e.g. a torn edge along a band of any length
         if not free:
             b = fit_aspect(kind, b, params, style["min_cover"])
@@ -520,14 +591,23 @@ def _try(ctx, cont, kind, params, cand, cb, held, nested, ornaments, texts, text
     plan = list(zip(held, new_boxes))
     if self_text:
         plan.append((cont, safe))
+
+    def check(sh, nb):
+        return check_field(sh, nb, None if ctx.deck else text_fields[sh.name], texts[sh.name], style,
+                           ctx.char_em, keep, max_words if sh.name == linked else None)
+
     for sh, nb in plan:
-        r = check_field(sh, nb, None if ctx.deck else text_fields[sh.name], texts[sh.name], style, ctx.char_em,
-                        keep, max_words if sh.name == linked else None)
+        r = check(sh, nb)
         if not r["ok"]:
             return f"{sh.name}: {r['reason']}"
         results[sh.name] = {"limit": r["limit"], "words": r["words"]}
         if not ctx.deck:
             results[sh.name]["old_limit"] = text_fields[sh.name]
+    centred = kind in CENTRED_KINDS
+    if centred and new_boxes:
+        if len(held) > 1 and not ctx.deck:
+            new_boxes = compact(new_boxes, held, results, check)
+        new_boxes = centre_boxes(new_boxes, safe)
     # every check passed: apply
     if b != cb:
         set_box(cont, b)
@@ -540,6 +620,13 @@ def _try(ctx, cont, kind, params, cand, cb, held, nested, ornaments, texts, text
     if cand.get("align") == "center":
         for sh in held + ([cont] if self_text else []):
             center_text(sh)
+    if centred:
+        # one text in a round shape: middle of the shape, whatever the text's length
+        if self_text and not held:
+            anchor_middle(cont)
+            center_text(cont)
+        elif len(held) == 1 and not self_text:
+            anchor_middle(held[0])
     return results
 
 
