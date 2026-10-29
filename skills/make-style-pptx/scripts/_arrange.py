@@ -20,10 +20,12 @@ why: each text field still fits (same checks as the restyler), no unit overlaps 
 box of the slide, every unit stays inside the margins and the content band, and the visual
 reading order (left to right in a row, top to bottom in a column) is the order of the units.
 
-Dosage (#1617): an arranged slide is an expressive slide. In a library, arranged layouts are
-added as new opt-in rows (``L-38-stagger``, tagged ``expressive``) next to the plain ones, so
-the agent building the deck picks them sparingly; in a deck, the style's ``intensity`` sets how
-many slides are arranged (calm 1, balanced 3, bold 4 per 10), never two in a row.
+Dosage (#1617) is a soft default, tuned per deck: in a library, arranged layouts are added as
+new opt-in rows (``L-38-stagger``, tagged ``expressive``) next to the plain ones, and the agent
+building the deck chooses when the content calls for one; in a deck, a preset ``intensity``
+(calm, balanced, bold, all) gives how many slides are arranged and how far apart, ``dosage``
+overrides it (``per10``, ``gap``) or names the slides (``slides``). The quality gates are not
+soft: they apply to every arranged slide whatever the dosage.
 
 Geometry (``positions``, ``fit_stack`` and the checks) is pure and works in EMU;
 ``add_variants`` (libraries) and ``arrange_deck`` (decks) are the hooks called by restyle.py.
@@ -64,8 +66,9 @@ DECONSTRUCTED_ROW = {
 DECONSTRUCTED_COLUMN = (0, 3, 1, 2, 0, 3)
 MAX_SHIFT_HALF = 3
 
-# Arranged slides allowed per 10 slides of a deck, by the style's intensity (#1617).
-INTENSITY = {"calm": 1, "balanced": 3, "bold": 4}
+# Soft presets for a deck (#1617): arranged slides per 10 (None: every slide that passes the
+# gates). The gap follows from the share: as far apart as the share allows, at least 1.
+INTENSITY = {"calm": 1, "balanced": 3, "bold": 5, "all": None}
 # How a variant row describes its layout (index ``description``).
 PHRASE = {"stagger": "a stagger", "cascade": "a cascade", "arc": "an arc", "deconstructed": "a deconstructed grid"}
 
@@ -130,14 +133,31 @@ def style_intensity(style: dict) -> str:
     value = style.get("intensity") or "balanced"
     if value not in INTENSITY:
         raise ValueError(f"style '{style.get('name')}': unknown intensity '{value}' (known: {', '.join(INTENSITY)})")
+    conf = style.get("dosage") or {}
+    unknown = set(conf) - {"per10", "gap", "slides"}
+    if unknown or not isinstance(conf, dict):
+        raise ValueError(f"style '{style.get('name')}': dosage takes per10, gap and slides")
+    if "per10" in conf and not (isinstance(conf["per10"], (int, float)) and 0 < conf["per10"] <= 10):
+        raise ValueError(f"style '{style.get('name')}': dosage per10 must be between 0 and 10")
+    if "gap" in conf and not (isinstance(conf["gap"], int) and conf["gap"] >= 1):
+        raise ValueError(f"style '{style.get('name')}': dosage gap must be a whole number, 1 or more")
+    if "slides" in conf and not all(isinstance(n, int) and n >= 1 for n in conf["slides"] or []):
+        raise ValueError(f"style '{style.get('name')}': dosage slides are slide numbers")
     return value
 
 
-def dosage(slides: int, intensity: str) -> Tuple[int, int]:
+def dosage(slides: int, intensity: str, conf: Optional[dict] = None) -> Tuple[int, int]:
     """(budget, gap) for a deck: at most ``budget`` arranged slides, at least ``gap`` slides
-    from one to the next (2 = never two in a row; larger spreads them over the deck)."""
-    budget = max(1, slides * INTENSITY[intensity] // 10)
-    return budget, max(2, math.ceil(slides / budget) - 1)
+    from one to the next (1 = side by side allowed). Soft: the preset gives the default,
+    ``conf`` (the style's ``dosage``: ``per10``, ``gap``) overrides it."""
+    conf = conf or {}
+    per10 = conf.get("per10", INTENSITY[intensity])
+    if per10 is None:
+        budget = slides
+    else:
+        budget = min(slides, max(1, int(slides * per10 // 10)))
+    gap = conf.get("gap", max(1, math.ceil(slides / max(budget, 1)) - 1))
+    return max(budget, 1), gap
 
 
 # ------------------------------------------------------------------ positions
@@ -459,7 +479,7 @@ def variant_row(row: dict, name: str, slide_no: int, limits: Dict[str, int], set
     out["slide"] = str(slide_no)
     out["name"] = f"{row.get('name', '')}, {name}"
     out["description"] = f"{row.get('description', '')} Units laid out as {PHRASE[name]}.".strip()
-    out["use_when"] = f"Same use as {row['id']}, for one standout slide: 2-3 per 10 at most, never two in a row."
+    out["use_when"] = f"Same use as {row['id']}, when the slide should stand out."
     out["tags"] = f"{row.get('tags', '')} expressive {name}".strip()
     if limits:
         out["fields"] = set_limits(row["fields"], limits)
@@ -561,7 +581,11 @@ def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
     if not names:
         return [], {}
     intensity = style_intensity(ctx.style)
-    budget, gap = dosage(len(slides), intensity)
+    conf = ctx.style.get("dosage") or {}
+    budget, gap = dosage(len(slides), intensity, conf)
+    chosen = set(conf["slides"]) if conf.get("slides") else None
+    if chosen:
+        intensity, budget, gap = "chosen slides", len(chosen), 1
     items: List[dict] = []
     last, turn = None, 0
     for i, (key, slide, reason) in enumerate(slides):
@@ -573,6 +597,9 @@ def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
         kind, count, fields = found
         item = {"id": key, "shape": "arrangement", "role": "arrangement", "arrange": f"{kind}:{count}"}
         items.append(item)
+        if chosen is not None and i + 1 not in chosen:
+            item.update(status="kept", reason="dosage: not one of the chosen slides")
+            continue
         used = sum(1 for it in items if it.get("status") == "arranged")
         if used >= budget:
             plural = "s" if budget > 1 else ""
@@ -593,7 +620,7 @@ def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
             reasons.append(f"{name}: {why}")
         else:
             item.update(status="fallback", reason="plain grid kept: " + "; ".join(reasons))
-    summary = {"requested": names, "applied": True, "intensity": intensity, "budget": budget, "gap": gap,
+    summary = {"requested": names, "applied": True, "dosage": intensity, "budget": budget, "gap": gap,
                "arranged": [it["id"] for it in items if it["status"] == "arranged"]}
     return items, summary
 

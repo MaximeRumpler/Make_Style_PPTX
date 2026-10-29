@@ -6,6 +6,7 @@ import subprocess
 import sys
 
 import pytest
+from lxml import etree
 from pptx import Presentation
 
 import _arrange as AR
@@ -165,7 +166,6 @@ def slide_xml(pptx, csv):
     _, rows = R.read_index(csv)
     ids = {int(r["slide"]): r["id"] for r in rows}
     prs = Presentation(str(pptx))
-    from lxml import etree
     return {ids[n]: etree.tostring(s._element) for n, s in enumerate(prs.slides, 1)}
 
 
@@ -345,11 +345,16 @@ def deck_copy(tmp_path):
 
 
 @pytest.mark.parametrize("n,intensity,budget,gap", [
-    (10, "calm", 1, 9), (10, "balanced", 3, 3), (10, "bold", 4, 2), (20, "balanced", 6, 3),
-    (8, "balanced", 2, 3), (3, "bold", 1, 2), (30, "bold", 12, 2)])
-def test_dosage_budget_and_gap(n, intensity, budget, gap):
+    (10, "calm", 1, 9), (10, "balanced", 3, 3), (10, "bold", 5, 1), (10, "all", 10, 1), (20, "balanced", 6, 3),
+    (8, "balanced", 2, 3), (3, "bold", 1, 2)])
+def test_dosage_presets(n, intensity, budget, gap):
     assert AR.dosage(n, intensity) == (budget, gap)
-    assert gap >= 2  # never two arranged slides in a row
+
+
+def test_dosage_is_soft_and_overridable():
+    assert AR.dosage(10, "calm", {"per10": 6}) == (6, 1)
+    assert AR.dosage(10, "balanced", {"gap": 1}) == (3, 1)
+    assert AR.dosage(4, "balanced", {"per10": 10, "gap": 2}) == (4, 2)
 
 
 def test_deck_units_from_shape_names():
@@ -359,11 +364,11 @@ def test_deck_units_from_shape_names():
     assert kinds == [None, None, None, ("row", 4), None, ("column", 4), None, ("column", 5)]
 
 
-def test_deck_dosage_never_two_in_a_row(tmp_path):
+def test_deck_default_dosage_spreads_slides(tmp_path):
     st = style_with(["stagger", "arc"])
     out, report = R.run(deck_copy(tmp_path), st, tmp_path / "out.pptx")
     hook = report["hooks"]["arrangement"]
-    assert hook["applied"] and hook["budget"] == 2 and hook["gap"] == 3
+    assert hook["applied"] and hook["dosage"] == "balanced" and hook["budget"] == 2 and hook["gap"] == 3
     got = {it["id"]: it for it in report["items"] if it["role"] == "arrangement"}
     assert set(got) == {"slide 4", "slide 6", "slide 8"}
     assert got["slide 4"]["status"] == "arranged" and got["slide 4"]["arrangement"] == "stagger"
@@ -396,6 +401,36 @@ def test_deck_calm_and_fallback(tmp_path):
     assert report["hooks"]["arrangement"]["arranged"] == ["slide 6"]
 
 
+def test_deck_dosage_tuned_per_deck(tmp_path):
+    """The agent tunes the dosage per deck: every slide that passes, or the slides it names."""
+    _, report = R.run(deck_copy(tmp_path), R.override(style_with("stagger"), intensity="all"), tmp_path / "all.pptx")
+    assert report["hooks"]["arrangement"]["arranged"] == ["slide 4", "slide 6", "slide 8"]
+    st = R.override(style_with("stagger"), slides="6,8")
+    _, report = R.run(deck_copy(tmp_path), st, tmp_path / "chosen.pptx")
+    got = {it["id"]: it for it in report["items"] if it["role"] == "arrangement"}
+    assert report["hooks"]["arrangement"]["arranged"] == ["slide 6", "slide 8"]  # side by side is allowed
+    assert got["slide 4"]["reason"] == "dosage: not one of the chosen slides"
+    assert R.main([str(deck_copy(tmp_path)), "--style", "organic", "--arrangement", "arc", "--slides", "8",
+                   "--out", str(tmp_path / "cli.pptx")]) == 0
+    with pytest.raises(R.RestyleError):
+        R.override(style_with("arc"), slides="two")
+
+
+def test_no_fixed_colours_or_fonts_added(arranged, tmp_path):
+    """Make_Colors rebrands through the theme only: nothing this layer adds may carry a fixed
+    RGB colour or a named font (every arranged variant has the colours and fonts of its source)."""
+    import re
+    fixed = re.compile(rb"<a:(?:srgbClr|sysClr|scrgbClr|hslClr|prstClr)\b|typeface=\"(?!\+m[jn]-)[^\"]+\"")
+    pack, report = arranged["deconstructed"]
+    xml = slide_xml(pack / "layouts.pptx", pack / "layouts.csv")
+    for vid, it in variant_ids(report).items():
+        assert len(fixed.findall(xml[vid])) <= len(fixed.findall(xml[it["id"]])), vid
+    out, _ = R.run(deck_copy(tmp_path), R.override(style_with("stagger"), intensity="all"), tmp_path / "d.pptx")
+    before = [etree.tostring(s._element) for s in Presentation(str(FIXTURE / "layouts.pptx")).slides]
+    after = [etree.tostring(s._element) for s in Presentation(str(out)).slides]
+    assert all(len(fixed.findall(a)) <= len(fixed.findall(b)) for a, b in zip(after, before))
+
+
 def test_deck_arrangement_deterministic(tmp_path):
     st = style_with(["deconstructed", "stagger"], "paper")
     deck = deck_copy(tmp_path)
@@ -407,6 +442,9 @@ def test_deck_arrangement_deterministic(tmp_path):
 def test_unknown_intensity_refused(tmp_path):
     p = tmp_path / "s.json"
     p.write_text(json.dumps({"roles": {}, "arrangement": "arc", "intensity": "loud"}))
+    with pytest.raises(R.RestyleError):
+        R.load_style(str(p))
+    p.write_text(json.dumps({"roles": {}, "arrangement": "arc", "dosage": {"gap": 0}}))
     with pytest.raises(R.RestyleError):
         R.load_style(str(p))
     p.write_text(json.dumps({"roles": {}, "arrangement": ["arc", "spiral"]}))

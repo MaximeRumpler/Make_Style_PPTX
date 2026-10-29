@@ -127,12 +127,7 @@ def caption(report: dict, row_id: str, shown: str = None) -> str:
 
 
 def _style(style_name: str, arrangement: str = None, intensity: str = None) -> dict:
-    style = R.load_style(style_name)
-    if arrangement:
-        style["arrangement"] = [a.strip() for a in arrangement.split(",") if a.strip()]
-    if intensity:
-        style["intensity"] = intensity
-    return style
+    return R.override(R.load_style(style_name), arrangement, intensity)
 
 
 def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60, arrangement: str = None) -> Path:
@@ -216,7 +211,7 @@ def build_deck(deck: Path, style_name: str, png: Path, dpi: int = 40, arrangemen
     hook = report["hooks"].get("arrangement") or {}
     d.text((pad, 12), f"Deck: {style['name']} + {', '.join(hook.get('requested', []))}", fill=(20, 20, 20),
            font=_font(20))
-    d.text((pad, 36), f"intensity {hook.get('intensity')}: {hook.get('budget')} arranged slides at most, "
+    d.text((pad, 36), f"dosage {hook.get('dosage')}: {hook.get('budget')} arranged slides at most, "
            f"{hook.get('gap')} slides apart at least. Before (left), after (right).", fill=(90, 90, 90), font=_font(13))
     y = head
     for i, (b, a) in enumerate(zip(pages["before"], pages["after"]), 1):
@@ -239,7 +234,7 @@ def main(argv=None) -> int:
     ap.add_argument("--dpi", type=int, default=60)
     ap.add_argument("--arrangement", help="override the style's arrangements, comma separated "
                     "(stagger, cascade, arc, deconstructed)")
-    ap.add_argument("--intensity", help="override the style's intensity (calm, balanced, bold), decks")
+    ap.add_argument("--intensity", help="override the style's intensity (calm, balanced, bold, all), decks")
     args = ap.parse_args(argv)
     stem = f"arrange-{args.arrangement.split(',')[0]}" if args.arrangement else f"restyle-{Path(args.style).stem}"
     if args.library.suffix.lower() == ".pptx":

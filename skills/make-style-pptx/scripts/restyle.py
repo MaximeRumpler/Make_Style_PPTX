@@ -2,6 +2,7 @@
 """Restyle a Make_Clean library or a built deck: swap the geometry of role-tagged containers.
 
     restyle.py <library folder | deck.pptx> --style organic [--out DIR|FILE] [--report FILE] [--force]
+               [--arrangement stagger,arc] [--intensity calm|balanced|bold|all] [--slides 2,6,9]
 
 Input
     a library folder (layouts.pptx/.csv and visuals.pptx/.csv, a Make_Clean pack or
@@ -32,8 +33,9 @@ The ``logo`` role and ``frame`` role are never touched.
 
 Arrangement (#1607, ``_arrange.py``): when the style names one or more, a library gets an
 arranged copy of each layout tagged in the index's ``arrange`` column, as a new opt-in row
-(``L-38-stagger``, tagged ``expressive``); a deck gets a few slides arranged in place, dosed
-by the style's ``intensity``. Units move before the shapes are swapped. Ambience
+(``L-38-stagger``, tagged ``expressive``); a deck gets some slides arranged in place, as
+many as the ``intensity`` preset or the ``dosage`` (or ``--slides``) asks. Units move
+before the shapes are swapped. Ambience
 (``ambience`` in the style, see ``_ambience.py``): a quiet background motif behind
 covers, statements and dividers, after the shapes.
 """
@@ -824,6 +826,28 @@ def run(src: Path, style: dict, out: Optional[Path] = None, force: bool = False)
     return out, report
 
 
+def override(style: dict, arrangement: Optional[str] = None, intensity: Optional[str] = None,
+             slides: Optional[str] = None) -> dict:
+    """The style with the arrangement, intensity or chosen slides of this run (validated)."""
+    style = dict(style)
+    if arrangement:
+        style["arrangement"] = [a.strip() for a in arrangement.split(",") if a.strip()]
+    if intensity:
+        style["intensity"] = intensity
+    if slides:
+        try:
+            chosen = [int(n) for n in slides.split(",") if n.strip()]
+        except ValueError:
+            raise RestyleError(f"--slides takes slide numbers, not '{slides}'") from None
+        style["dosage"] = {**(style.get("dosage") or {}), "slides": chosen}
+    try:
+        AR.style_arrangements(style)
+        AR.style_intensity(style)
+    except ValueError as exc:
+        raise RestyleError(str(exc)) from None
+    return style
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("input", help="library folder or built deck (.pptx)")
@@ -831,9 +855,14 @@ def main(argv=None) -> int:
     ap.add_argument("--out", help="output folder (library) or .pptx (deck)")
     ap.add_argument("--report", help="also write the JSON report here")
     ap.add_argument("--force", action="store_true", help="replace an existing output")
+    ap.add_argument("--arrangement", help="arrangements, comma separated (stagger, cascade, arc, deconstructed)")
+    ap.add_argument("--intensity", help="deck: how many slides get arranged (calm, balanced, bold, all)")
+    ap.add_argument("--slides", help="deck: arrange these slides only (numbers, comma separated)")
     args = ap.parse_args(argv)
     try:
         style = load_style(args.style)
+        if args.arrangement or args.intensity or args.slides:
+            style = override(style, args.arrangement, args.intensity, args.slides)
         out, report = run(Path(args.input), style, Path(args.out) if args.out else None, args.force)
     except (RestyleError, OSError, ValueError) as exc:
         print(json.dumps({"error": str(exc)}))
