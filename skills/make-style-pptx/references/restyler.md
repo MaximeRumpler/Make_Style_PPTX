@@ -43,7 +43,7 @@ A JSON file in `styles/` (or anywhere, passed by path):
     ]}
   },
   "arrangement": null,
-  "ambience": null
+  "ambience": {"motif": "mist", "density": "low"}
 }
 ```
 
@@ -54,7 +54,7 @@ A JSON file in `styles/` (or anywhere, passed by path):
 - `scope`: which rows are restyled (default: layouts of density `Low` or `Medium`, never `Table` or `Frame`; visuals of kind `diagram` or `timeline`, never charts, tables, matrices or illustrations).
 - `seed`, `min_cover` (how much of the box a shape must keep when shrunk to its proportions, default 0.85), `padding` (share of the container's original inner margin kept around the text, default 0.75), `min_chars_per_line` (default 10).
 - `arrangement`: `null` (default, the plain grid), or `"stagger"`, `"cascade"`, `"arc"`, `"deconstructed"` (also `{"name": "arc"}`). See *Arrangements* below.
-- `ambience`: a later layer (#1608). Accepted and recorded in the report as not applied.
+- `ambience`: a background motif behind low-text slides, see [Ambience](#ambience). `null` (the default) adds nothing.
 
 ## What happens to one container
 
@@ -85,10 +85,36 @@ The arrangement is applied only when every check passes; otherwise the slide kee
 
 Out of this version: `grid:N` layouts, visuals (V-…), decks (no layout id in a built deck), units held by a panel (bands that bleed off the slide).
 
+## Ambience
+
+`scripts/_ambience.py` runs after the shapes, on the same copy. It puts **one** motif behind the content of low-text slides:
+
+| Motif | What it draws |
+|---|---|
+| `mist` | three soft, overlapping blobs (soft-edge effect) gathered off the emptiest corner |
+| `rain` | thin streaks at one slant on the emptier side, thinning out towards the content, never touching text, rules or pictures |
+| `grid` | a fine grid on the emptier side, aligned to the slide edge, fading out towards the content; `"marks": "cross"` draws small crosses at the intersections instead of lines |
+
+```json
+"ambience": {"motif": "grid", "density": "low", "marks": "lines"}
+```
+
+- Native shapes only (custom geometry, theme colours with a transparency): no bitmap, every part can be edited or deleted. The motif is one group, `ambience#1 > <motif>`, first in the shape tree (behind everything), marked decorative so screen readers skip it. `ambience#1` is not a role tag: the restyler and Make_Clean ignore it.
+- Colours: `colour` on light slides (default `tx2`), `on_dark` on dark ones (default `bg1`), any theme slot. The slide background is read from the slide, its layout or its master, so a new theme (Make_Colors) rebrands the motif.
+- `density`: `low` (default) or `medium`, the amount and opacity of the motif.
+- Where: in a library, layouts of the `categories` (default `Cover`, `Statement`, `Divider`) whose density is in `layout_density` (default `Low`); never tables, frames or visuals. In a deck, slides with no chart, table or picture, at most `max_fields` text fields (8) and `max_chars` characters (280), and some text at `min_pt` (28 pt) or more.
+- `seed`: added to the style seed; each slide also gets a stable seed from its id, so the same input gives the same bytes.
+- **Contrast gate**: every text run over a motif part is checked against the colour the part leaves under it (WCAG 2.x: 4.5:1, 3:1 for 18 pt or 14 pt bold and above). A part that would take a run below its threshold is left out; a run that is already below it without any motif may lose at most 3 % of its contrast. Overlapping mist blobs add up; lines are judged one by one, so only the grid cells under a failing run disappear. Text on its own fill or over an opaque shape is not checked (the motif cannot be seen there). When nothing is left, the slide keeps no motif and the report says so.
+- `typography` (optional): `{"major": "<font>", "minor": "<font>"}` sets the theme heading and body fonts of the pack or deck. Character limits are not recomputed: choose fonts close to the original widths.
+- The report gets an `ambience` entry per library (or deck): for each slide its status (`applied`, `skipped`, `out-of-scope`), motif, colour slot, number of parts and parts cut by the contrast check.
+
+Paper grain is not offered: PowerPoint's preset pattern fills render as hatching in LibreOffice, and dots drawn one by one would weigh hundreds of kilobytes per slide.
+
 ## Limits
 
 - **Word limits** are computed for every moved field and written in `restyle-report.json` (`words`). The index schema of Make_Clean has no word-limit flag yet, so they are not in the CSV.
 - In round shapes the template text is centred with the room its limit gives it: a field whose limit allows four lines but holds two in the template sits slightly above the middle until it is filled.
 - Wide bands (more than about 3:1 once the 85 % rule is applied, e.g. the stage bars of V-PRO-04) are too long for a pebble and stay `rounded` in organic.
 - Fields inside the container are found by geometry (their box inside the container's box). Containers nested in another (a card in a lane) are never moved; the outer shape falls back when they would stick out.
+- The contrast gate works on text boxes, not on the glyphs: a motif part that crosses the empty end of a wide text box is judged as if it sat under the text.
 - In a deck, roles come from the shape names only: fields that are also containers (`role=` flags in the index) are not recognised, and slides with a chart or a table are left alone.

@@ -49,6 +49,8 @@ Second brick: the **restyler** (`skills/make-style-pptx/scripts/restyle.py`). It
 
 Third brick: **arrangements** (`scripts/_arrange.py`). On the layouts whose units Make_Clean marks as rearrangeable (three columns, four figures, a vertical sequence…), a style can lay the units out as a stagger, a cascade, an arc or a deconstructed 12-column grid. Positions depend only on the arrangement and the number of units; when a text would overflow, overlap or leave the margins, the slide keeps its plain grid. Before and after: [stagger](docs/arrange-stagger.png), [arc](docs/arrange-arc.png), [cascade](docs/arrange-cascade.png), [deconstructed](docs/arrange-deconstructed.png).
 
+Fourth brick: the **ambience** (`scripts/_ambience.py`). A style can put one quiet motif behind its covers, statements and dividers: a soft mist, thin rain streaks or a fine technical grid. The motifs are native, editable shapes in theme colours, sit behind the content, never go on dense slides, and any part that would make a text harder to read than WCAG's 4.5:1 is left out. *organic* uses the mist, *paper* the grid: [mist](docs/ambience-mist.png), [grid](docs/ambience-grid.png), [rain](docs/ambience-rain.png).
+
 * * *
 
 ## License

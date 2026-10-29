@@ -104,6 +104,12 @@ def caption(report: dict, row_id: str) -> str:
     for b in bits:
         if b not in seen:
             seen.append(b)
+    for lib in report["libraries"].values():
+        for it in (lib.get("ambience") or {}).get("items", []):
+            if it["id"] == row_id and it["status"] != "out-of-scope":
+                n = it.get("dropped_by_contrast", 0)
+                cut = f", {n} part{'s' if n > 1 else ''} cut by the contrast check" if n else ""
+                seen.append(f"ambience: {it['motif']} {it['status']}{cut}")
     return ", ".join(seen[:6]) + (" ..." if len(seen) > 6 else "") or "nothing to restyle"
 
 

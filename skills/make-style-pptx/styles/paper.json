@@ -1,6 +1,6 @@
 {
   "name": "paper",
-  "description": "Paper and pencil: cards are torn sheets, callouts tickets, key figures and labels sketched by hand, side panels get a torn edge where they meet the slide.",
+  "description": "Paper and pencil: cards are torn sheets, callouts tickets, key figures and labels sketched by hand, side panels get a torn edge where they meet the slide. A faint squared-paper grid sits behind covers, statements and dividers.",
   "seed": 29,
   "keep": 0.6,
   "max_chars": 320,
@@ -26,5 +26,5 @@
     ]}
   },
   "arrangement": null,
-  "ambience": null
+  "ambience": {"motif": "grid", "density": "low"}
 }
