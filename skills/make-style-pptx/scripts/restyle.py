@@ -30,8 +30,9 @@ listed kinds (diagrams and timelines; charts, tables, matrices and illustrations
 never), and only containers whose fields hold at most ``max_chars`` characters in all.
 The ``logo`` role and ``frame`` role are never touched.
 
-Arrangement (#1607) and ambience (#1608) are later layers: the style may already name
-them (``arrangement``, ``ambience``); they are recorded in the report and not applied.
+Arrangement (#1607, ``_arrange.py``): when the style names one, the units of the layouts
+tagged in the index's ``arrange`` column are laid out again before the shapes are swapped
+(libraries only). Ambience (#1608) is a later layer: recorded in the report, not applied.
 """
 from __future__ import annotations
 
@@ -53,6 +54,7 @@ from lxml import etree
 from pptx import Presentation
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _arrange as AR  # noqa: E402
 import _shapes as S  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -729,7 +731,9 @@ def restyle_library(src: Path, style: dict, out: Path) -> dict:
             if row is None:
                 continue
             fields = parse_fields(row.get("fields", ""))
-            got = restyle_slide(ctx, slide, row["id"], fields, in_scope(row, lib, style))
+            scope = in_scope(row, lib, style)
+            got = AR.arrange(sys.modules[__name__], ctx, slide, row, fields, lib, scope)  # units first (#1607)
+            got += restyle_slide(ctx, slide, row["id"], fields, scope)
             limits = {}
             for it in got:
                 for name, f in (it.get("fields") or {}).items():
@@ -750,6 +754,8 @@ def restyle_library(src: Path, style: dict, out: Path) -> dict:
     (out / "restyle.json").write_text(json.dumps(style, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report["summary"] = summarise(all_items)
     report["hooks"] = _hooks(style)
+    if AR.style_arrangement(style):
+        report["hooks"]["arrangement"] = {"requested": style["arrangement"], "applied": True}
     (out / "restyle-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 

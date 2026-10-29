@@ -47,6 +47,8 @@ First brick in place: the **shapes library** (`skills/make-style-pptx/scripts/_s
 
 Second brick: the **restyler** (`skills/make-style-pptx/scripts/restyle.py`). It turns a Make_Clean library into a style pack: cards, callouts, key figures and labels take a new shape, their text moves into the shape's safe box, and the character limits of the index are recomputed. When a text would no longer fit, the container keeps its standard shape. Two reference styles, *organic* and *paper*, before and after: [organic](docs/restyle-organic.png), [paper](docs/restyle-paper.png). Details in [references/restyler.md](skills/make-style-pptx/references/restyler.md).
 
+Third brick: **arrangements** (`scripts/_arrange.py`). On the layouts whose units Make_Clean marks as rearrangeable (three columns, four figures, a vertical sequence…), a style can lay the units out as a stagger, a cascade, an arc or a deconstructed 12-column grid. Positions depend only on the arrangement and the number of units; when a text would overflow, overlap or leave the margins, the slide keeps its plain grid. Before and after: [stagger](docs/arrange-stagger.png), [arc](docs/arrange-arc.png), [cascade](docs/arrange-cascade.png), [deconstructed](docs/arrange-deconstructed.png).
+
 * * *
 
 ## License
