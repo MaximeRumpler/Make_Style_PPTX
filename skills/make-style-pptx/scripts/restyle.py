@@ -30,8 +30,9 @@ listed kinds (diagrams and timelines; charts, tables, matrices and illustrations
 never), and only containers whose fields hold at most ``max_chars`` characters in all.
 The ``logo`` role and ``frame`` role are never touched.
 
-Arrangement (#1607) and ambience (#1608) are later layers: the style may already name
-them (``arrangement``, ``ambience``); they are recorded in the report and not applied.
+Ambience (``ambience`` in the style, see ``_ambience.py``): a quiet background motif
+behind covers, statements and dividers, after the shapes. Arrangement (#1607) is a
+later layer: the style may already name it; it is recorded in the report, not applied.
 """
 from __future__ import annotations
 
@@ -53,6 +54,7 @@ from lxml import etree
 from pptx import Presentation
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _ambience as AMB  # noqa: E402
 import _shapes as S  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -73,7 +75,7 @@ DEFAULT_SCOPE = {
 # round silhouettes: the text they hold is centred as a group (top-left in a pebble
 # reads as a mistake); rectangles, tickets, torn and hand-drawn cards keep their layout
 CENTRED_KINDS = ("blob", "pebble", "drop", "circle", "cloud", "ellipse")
-HOOKS = ("arrangement", "ambience")  # later layers (#1607, #1608): accepted, reported, not applied
+HOOKS = ("arrangement",)  # later layer (#1607): accepted, reported, not applied
 
 
 class RestyleError(Exception):
@@ -113,6 +115,10 @@ def load_style(which: str) -> dict:
             if cand.get("kind") not in S.KINDS:
                 raise RestyleError(f"style '{style['name']}', {role}: unknown shape '{cand.get('kind')}'")
     style["roles"] = roles
+    try:
+        style["ambience"] = AMB.normalise(style.get("ambience"))
+    except AMB.AmbienceError as exc:
+        raise RestyleError(f"style '{style['name']}': {exc}") from None
     return style
 
 
@@ -738,9 +744,12 @@ def restyle_library(src: Path, style: dict, out: Path) -> dict:
             if limits:
                 row["fields"] = set_limits(row["fields"], limits)
             items.extend(got)
+        amb = AMB.apply_library(prs, lib, by_slide, style)
         save_deterministic(prs, out / f"{lib}.pptx")
         write_index(out / f"{lib}.csv", header, rows)
         report["libraries"][lib] = {"summary": summarise(items), "items": items}
+        if amb:
+            report["libraries"][lib]["ambience"] = amb
         all_items.extend(items)
     if not report["libraries"]:
         raise RestyleError(f"{src}: no layouts.pptx/.csv or visuals.pptx/.csv found")
@@ -764,9 +773,12 @@ def restyle_deck(src: Path, style: dict, out: Path) -> dict:
         data = any(getattr(sh, "has_chart", False) or getattr(sh, "has_table", False)
                    for coll in collections(slide.shapes) for sh in coll)
         items.extend(restyle_slide(ctx, slide, f"slide {n}", {}, "slide with a chart or a table" if data else None))
+    amb = AMB.apply_deck(prs, style)
     save_deterministic(prs, out)
     report = {"style": style["name"], "input": src.name, "kind": "deck", "summary": summarise(items),
               "hooks": _hooks(style), "items": items}
+    if amb:
+        report["ambience"] = amb
     return report
 
 

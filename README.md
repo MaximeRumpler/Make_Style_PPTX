@@ -47,6 +47,8 @@ First brick in place: the **shapes library** (`skills/make-style-pptx/scripts/_s
 
 Second brick: the **restyler** (`skills/make-style-pptx/scripts/restyle.py`). It turns a Make_Clean library into a style pack: cards, callouts, key figures and labels take a new shape, their text moves into the shape's safe box, and the character limits of the index are recomputed. When a text would no longer fit, the container keeps its standard shape. Two reference styles, *organic* and *paper*, before and after: [organic](docs/restyle-organic.png), [paper](docs/restyle-paper.png). Details in [references/restyler.md](skills/make-style-pptx/references/restyler.md).
 
+Third brick: the **ambience** (`scripts/_ambience.py`). A style can put one quiet motif behind its covers, statements and dividers: a soft mist, thin rain streaks or a fine technical grid. The motifs are native, editable shapes in theme colours, sit behind the content, never go on dense slides, and any part that would make a text harder to read than WCAG's 4.5:1 is left out. *organic* uses the mist, *paper* the grid: [mist](docs/ambience-mist.png), [grid](docs/ambience-grid.png), [rain](docs/ambience-rain.png).
+
 * * *
 
 ## License

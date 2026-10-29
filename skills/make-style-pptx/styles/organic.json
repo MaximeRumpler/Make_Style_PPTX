@@ -1,6 +1,6 @@
 {
   "name": "organic",
-  "description": "Soft and organic: cards become pebbles, callouts clouds, key figures round discs, labels circles or pills. Panels and rules stay as they are.",
+  "description": "Soft and organic: cards become pebbles, callouts clouds, key figures round discs, labels circles or pills. Panels and rules stay as they are. A soft mist sits behind covers, statements and dividers.",
   "seed": 11,
   "keep": 0.6,
   "max_chars": 320,
@@ -30,5 +30,5 @@
     ]}
   },
   "arrangement": null,
-  "ambience": null
+  "ambience": {"motif": "mist", "density": "low"}
 }
