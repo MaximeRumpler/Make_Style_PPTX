@@ -6,6 +6,7 @@
 python scripts/restyle.py <library folder> --style organic [--out <pack folder>]
 python scripts/restyle.py deck.pptx --style paper [--out deck-paper.pptx]
 python scripts/restyle_sheet.py <library folder> --style organic     # before/after PNG in docs/
+python scripts/restyle_sheet.py <library folder> --style paper --arrangement cascade   # docs/arrange-cascade.png
 ```
 
 The input is never written. A library gives a **style pack** folder that Make_Clean builds with as is (`build_deck.py --local-dir <pack>`):
@@ -52,8 +53,8 @@ A JSON file in `styles/` (or anywhere, passed by path):
 - `max_chars`: containers whose fields add up to more characters are text-heavy and keep their standard shape. A role can set its own.
 - `scope`: which rows are restyled (default: layouts of density `Low` or `Medium`, never `Table` or `Frame`; visuals of kind `diagram` or `timeline`, never charts, tables, matrices or illustrations).
 - `seed`, `min_cover` (how much of the box a shape must keep when shrunk to its proportions, default 0.85), `padding` (share of the container's original inner margin kept around the text, default 0.75), `min_chars_per_line` (default 10).
+- `arrangement`: `null` (default, the plain grid), or `"stagger"`, `"cascade"`, `"arc"`, `"deconstructed"` (also `{"name": "arc"}`). See *Arrangements* below.
 - `ambience`: a background motif behind low-text slides, see [Ambience](#ambience). `null` (the default) adds nothing.
-- `arrangement`: the later layer (#1607). Accepted and recorded in the report as not applied.
 
 ## What happens to one container
 
@@ -64,6 +65,25 @@ A JSON file in `styles/` (or anywhere, passed by path):
 5. Only when every field passes is the geometry swapped (`a:custGeom`, fill, line and theme colours unchanged) and the fields moved; otherwise the next candidate is tried. When none passes, the container keeps its standard shape and the report says why.
 
 Same input and same style give the same bytes (fixed zip timestamps, seeds from the layout id and shape name).
+
+## Arrangements
+
+`scripts/_arrange.py` runs before the shapes are swapped, on layouts only, and only on the rows whose `arrange` column (Make_Clean's index) says `row:N` or `column:N` and that are in scope. A **unit** is every field with the same number, the role-tagged shapes linked to them, and the unlinked decorations that sit inside it (a rule above a card). Decorations that sit across two units (a divider, a timeline spine) are removed when the slide is arranged, and the report lists them.
+
+| Arrangement | Row (units side by side) | Column (units stacked) |
+|---|---|---|
+| `stagger` | every other unit 6 baselines (0.9 in) lower | every other unit one column further right |
+| `cascade` | each unit lower than the previous one, 8 baselines in all | each unit further right, 1.5 columns in all |
+| `arc` | an arch: middle units highest, outer ones 6 baselines lower (3 units or more) | middle units bulge one column to the right |
+| `deconstructed` | fixed table per count (2 to 4 units) on the 12-column grid | indents of 0, 1.5, 0.5, 1 column… |
+
+Deconstructed grid rules (tokens, never improvised): Make_Clean's grid (12 columns, 0.3 in gutter, 0.6 in margins, baseline 0.15 in); starts in half-column steps at most 1.5 columns from the plain grid; one span for every unit of a set, never wider than the plain one; drops in whole baselines; neighbours at least a gutter apart. Rows must span the whole grid. Overlap, bleed and 90° labels allowed by #1607 are not used yet.
+
+Units are moved and resized, never their fonts. In a row they may grow down to the bottom of the content band (6.75 in), short of the next shape below; when a unit gets shorter, the gaps and the slack under each text give way first, never below the height that keeps `keep` of a field's limit. Marks, icons and short labels keep their size; rules and wide text boxes follow the unit's width.
+
+The arrangement is applied only when every check passes; otherwise the slide keeps its plain grid and the report says why (`fallback`, `reason`): every text field passes the same fit check as the shapes (`keep`, whole words, template text), no unit overlaps another unit or a text box of the slide, every unit stays inside the margins and the content band, and the visual reading order (left to right in a row, top to bottom in a column) is the order of the units, so `ordered` layouts keep their sequence. Positions depend only on the arrangement, the kind and the number of units: same input, same bytes. The limits of the moved fields are lowered in the pack's index like the shapes' ones.
+
+Out of this version: `grid:N` layouts, visuals (V-…), decks (no layout id in a built deck), units held by a panel (bands that bleed off the slide).
 
 ## Ambience
 

@@ -2,6 +2,7 @@
 """Before/after contact sheet of a style on a few low-text layouts and visuals.
 
     restyle_sheet.py <library folder> --style organic [--ids L-24,L-38,...] [--png docs/restyle-organic.png]
+    restyle_sheet.py <library folder> --style organic --arrangement stagger   # docs/arrange-stagger.png
 
 Keeps only the chosen slides of the library (a small copy), restyles that copy, renders
 both with LibreOffice and pdftoppm, and lays them out side by side, one row per
@@ -94,7 +95,10 @@ def caption(report: dict, row_id: str) -> str:
         for it in lib["items"]:
             if it["id"] != row_id or it["status"] in ("kept", "out-of-scope"):
                 continue
-            what = it.get("kind") if it["status"] == "restyled" else it["status"]
+            if it["status"] == "arranged":
+                what = it["arrangement"]
+            else:
+                what = it.get("kind") if it["status"] == "restyled" else it["status"]
             bits.append(f"{it['shape'].split(' > ')[0]}: {what}")
     seen = []
     for b in bits:
@@ -109,12 +113,14 @@ def caption(report: dict, row_id: str) -> str:
     return ", ".join(seen[:6]) + (" ..." if len(seen) > 6 else "") or "nothing to restyle"
 
 
-def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60) -> Path:
+def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60, arrangement: str = None) -> Path:
     from PIL import Image, ImageDraw
 
     if not soffice() or not shutil.which("pdftoppm"):
         raise R.RestyleError("LibreOffice and pdftoppm are needed for the PNG")
     style = R.load_style(style_name)
+    if arrangement:
+        style["arrangement"] = arrangement
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         before = tmp / "before"
@@ -131,7 +137,8 @@ def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60) -> Path:
     pad, head, cap = 16, 56, 34
     sheet = Image.new("RGB", (pad * 3 + w * 2, head + len(kept) * (h + cap + pad) + pad), (236, 236, 232))
     d = ImageDraw.Draw(sheet)
-    d.text((pad, 14), f"Restyler: {style['name']}", fill=(20, 20, 20), font=_font(22))
+    title = f"Restyler: {style['name']}" + (f" + {arrangement}" if arrangement else "")
+    d.text((pad, 14), title, fill=(20, 20, 20), font=_font(22))
     d.text((pad + w + pad, 20), "before (left), after (right)",
            fill=(90, 90, 90), font=_font(13))
     y = head
@@ -152,10 +159,13 @@ def main(argv=None) -> int:
     ap.add_argument("--ids", default=",".join(DEFAULT_IDS))
     ap.add_argument("--png", type=Path)
     ap.add_argument("--dpi", type=int, default=60)
+    ap.add_argument("--arrangement", help="override the style's arrangement (stagger, cascade, arc, deconstructed)")
     args = ap.parse_args(argv)
-    png = args.png or REPO / "docs" / f"restyle-{Path(args.style).stem}.png"
+    stem = f"arrange-{args.arrangement}" if args.arrangement else f"restyle-{Path(args.style).stem}"
+    png = args.png or REPO / "docs" / f"{stem}.png"
     try:
-        build(args.library, args.style, [i.strip() for i in args.ids.split(",") if i.strip()], png, args.dpi)
+        build(args.library, args.style, [i.strip() for i in args.ids.split(",") if i.strip()], png, args.dpi,
+              args.arrangement)
     except R.RestyleError as exc:
         print(json.dumps({"error": str(exc)}))
         return 2
