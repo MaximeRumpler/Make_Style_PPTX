@@ -7,6 +7,8 @@ python scripts/restyle.py <library folder> --style organic [--out <pack folder>]
 python scripts/restyle.py deck.pptx --style paper [--out deck-paper.pptx]
 python scripts/restyle_sheet.py <library folder> --style organic     # before/after PNG in docs/
 python scripts/restyle_sheet.py <library folder> --style paper --arrangement cascade   # docs/arrange-cascade.png
+python scripts/restyle.py deck.pptx --style paper --arrangement stagger,arc [--intensity bold | --slides 3,4,8]
+python scripts/restyle_sheet.py deck.pptx --style paper --arrangement stagger,arc      # docs/arrange-deck.png
 ```
 
 The input is never written. A library gives a **style pack** folder that Make_Clean builds with as is (`build_deck.py --local-dir <pack>`):
@@ -14,7 +16,7 @@ The input is never written. A library gives a **style pack** folder that Make_Cl
 | File | What it holds |
 |---|---|
 | `layouts.pptx`, `visuals.pptx` | the restyled libraries: same slides, same ids, same shape names |
-| `layouts.csv`, `visuals.csv` | the indexes, byte-identical except the lowered `limit` of the fields that moved into a smaller text box |
+| `layouts.csv`, `visuals.csv` | the indexes, byte-identical except the lowered `limit` of the fields that moved into a smaller text box, and the arranged variant rows appended at the end (see *Arrangements*) |
 | `theme-contract.json`, `style.json` | copied from the input when present |
 | `restyle.json` | the style definition used |
 | `restyle-report.json` | every container: restyled (with its shape, parameters, new limits and word limits), fallback (with the reason of each candidate), text-heavy, out of scope or kept |
@@ -53,7 +55,7 @@ A JSON file in `styles/` (or anywhere, passed by path):
 - `max_chars`: containers whose fields add up to more characters are text-heavy and keep their standard shape. A role can set its own.
 - `scope`: which rows are restyled (default: layouts of density `Low` or `Medium`, never `Table` or `Frame`; visuals of kind `diagram` or `timeline`, never charts, tables, matrices or illustrations).
 - `seed`, `min_cover` (how much of the box a shape must keep when shrunk to its proportions, default 0.85), `padding` (share of the container's original inner margin kept around the text, default 0.75), `min_chars_per_line` (default 10).
-- `arrangement`: `null` (default, the plain grid), or `"stagger"`, `"cascade"`, `"arc"`, `"deconstructed"` (also `{"name": "arc"}`). See *Arrangements* below.
+- `arrangement`: `null` (default, the plain grid), one name (`"arc"`) or a list (`["stagger", "arc"]`) of `stagger`, `cascade`, `arc`, `deconstructed`. `intensity` and `dosage`: how many slides of a deck get arranged, a soft default tuned per deck. See *Arrangements* below.
 - `ambience`: a background motif behind low-text slides, see [Ambience](#ambience). `null` (the default) adds nothing.
 
 ## What happens to one container
@@ -68,22 +70,35 @@ Same input and same style give the same bytes (fixed zip timestamps, seeds from 
 
 ## Arrangements
 
-`scripts/_arrange.py` runs before the shapes are swapped, on layouts only, and only on the rows whose `arrange` column (Make_Clean's index) says `row:N` or `column:N` and that are in scope. A **unit** is every field with the same number, the role-tagged shapes linked to them, and the unlinked decorations that sit inside it (a rule above a card). Decorations that sit across two units (a divider, a timeline spine) are removed when the slide is arranged, and the report lists them.
+`scripts/_arrange.py` lays out the repeated units of a slide (three columns, four figures, five steps) another way than the plain grid. Pick by what the content says:
 
-| Arrangement | Row (units side by side) | Column (units stacked) |
-|---|---|---|
-| `stagger` | every other unit 6 baselines (0.9 in) lower | every other unit one column further right |
-| `cascade` | each unit lower than the previous one, 8 baselines in all | each unit further right, 1.5 columns in all |
-| `arc` | an arch: middle units highest, outer ones 6 baselines lower (3 units or more) | middle units bulge one column to the right |
-| `deconstructed` | fixed table per count (2 to 4 units) on the 12-column grid | indents of 0, 1.5, 0.5, 1 column… |
+| Arrangement | Row (units side by side) | Column (units stacked) | Reads as |
+|---|---|---|---|
+| `stagger` | every other unit 6 baselines (0.9 in) lower | every other unit one column further right | rhythm between peers |
+| `cascade` | each unit lower than the previous one, 8 baselines in all | each unit further right, 1.5 columns in all | a progression, a build-up |
+| `arc` | an arch: middle units highest, outer ones 6 baselines lower (3 units or more) | middle units bulge one column to the right | a story with a peak |
+| `deconstructed` | fixed table per count (2 to 4 units) on the 12-column grid | indents of 0, 1.5, 0.5, 1 column… | editorial, magazine |
 
-Deconstructed grid rules (tokens, never improvised): Make_Clean's grid (12 columns, 0.3 in gutter, 0.6 in margins, baseline 0.15 in); starts in half-column steps at most 1.5 columns from the plain grid; one span for every unit of a set, never wider than the plain one; drops in whole baselines; neighbours at least a gutter apart. Rows must span the whole grid. Overlap, bleed and 90° labels allowed by #1607 are not used yet.
+An arranged slide stands out. How many a deck takes is a matter of taste, not a rule: it depends on the request, the audience and the tone, so the dosage is a soft default that the agent tunes per deck. The quality gates below are not soft.
 
-Units are moved and resized, never their fonts. In a row they may grow down to the bottom of the content band (6.75 in), short of the next shape below; when a unit gets shorter, the gaps and the slack under each text give way first, never below the height that keeps `keep` of a field's limit. Marks, icons and short labels keep their size; rules and wide text boxes follow the unit's width.
+- **Library → variant rows.** The plain layouts are never changed. For each layout whose `arrange` column (Make_Clean's index) says `row:N` or `column:N` and is in scope, and for each arrangement of the style, an arranged copy is appended to `layouts.pptx` with a new row: id `<id>-<arrangement>` (`L-38-stagger`), next slide number, same fields and `arrange` value, limits lowered for the moved fields, tags + `expressive <arrangement>`. Make_Clean treats `expressive` rows as opt-in (left out of searches unless asked): the agent building the deck picks a variant when the content calls for it, as many as suit the deck.
+- **Deck → dosed in place.** A built deck has no layout id: the units come from the shape names Make_Clean keeps (fields numbered 1..N, sharing a text field, in one row or one column; slides with a chart or a table are left alone). How many slides, in order of precedence:
 
-The arrangement is applied only when every check passes; otherwise the slide keeps its plain grid and the report says why (`fallback`, `reason`): every text field passes the same fit check as the shapes (`keep`, whole words, template text), no unit overlaps another unit or a text box of the slide, every unit stays inside the margins and the content band, and the visual reading order (left to right in a row, top to bottom in a column) is the order of the units, so `ordered` layouts keep their sequence. Positions depend only on the arrangement, the kind and the number of units: same input, same bytes. The limits of the moved fields are lowered in the pack's index like the shapes' ones.
+  | Setting | Effect |
+  |---|---|
+  | `--slides 3,4,8` (or `"dosage": {"slides": [3, 4, 8]}`) | exactly the slides the agent chose for their content (neighbours allowed) |
+  | `"dosage": {"per10": 5, "gap": 1}` | `per10` arranged slides per 10 (at least 1); `gap` 1 lets two sit side by side, 3 keeps two slides between them |
+  | `--intensity` / `"intensity"` | presets: `calm` 1 per 10, `balanced` 3 (default), `bold` 5, `all` every slide that passes; spread as evenly as the share allows |
 
-Out of this version: `grid:N` layouts, visuals (V-…), decks (no layout id in a built deck), units held by a panel (bands that bleed off the slide).
+  Slides are taken in order; the style's arrangements take turns, the next one is tried when one falls back; a fallback does not use the budget. The report's `hooks.arrangement` gives the dosage, the budget, the gap and the arranged slides; each candidate slide has an item (`arranged`, `fallback`, or `kept` with the dosage reason).
+
+A **unit** is every field with the same number, the role-tagged shapes linked to them, and the unlinked decorations inside it (a rule above a card). Decorations across two units (a divider, a timeline spine) are removed from the arranged slide, and the report lists them. Units are moved and resized, never their fonts. In a row they may grow down to the bottom of the content band (6.75 in), short of the next shape below; when a unit gets shorter, the gaps and the slack under each text give way first, never below the height that keeps `keep` of a field's limit. Marks, icons and short labels keep their size; rules and wide text boxes follow the unit's width.
+
+Deconstructed grid rules (tokens, never improvised): Make_Clean's grid (12 columns, 0.3 in gutter, 0.6 in margins, baseline 0.15 in); starts in half-column steps at most 1.5 columns from the plain grid; one span for every unit of a set, never wider than the plain one; drops in whole baselines; neighbours at least a gutter apart. Rows must span the whole grid.
+
+**Quality gates** (strict, whatever the dosage). A slide is arranged only when every check passes, else it keeps its plain grid and the report says why (`fallback`, `reason`): every text field fits (same check as the shapes: `keep`, whole words, the template text in a library, the real text in a deck); no unit overlaps another unit or a text box of the slide; every unit stays inside the margins and the content band; the visual reading order (left to right in a row, top to bottom in a column) is the order of the units. Positions depend only on the arrangement, the kind and the number of units: same input, same bytes. Nothing is added but positions: colours and fonts stay theme slots, so Make_Colors can rebrand the result.
+
+Not yet: `grid:N` layouts, visuals (V-…), units held by a panel, the overlap, bleed and 90° labels allowed by #1607, and expressive slides other than arranged ones in the deck budget (a deck does not say which Make_Clean rows it was built from).
 
 ## Ambience
 
@@ -117,4 +132,5 @@ Paper grain is not offered: PowerPoint's preset pattern fills render as hatching
 - Wide bands (more than about 3:1 once the 85 % rule is applied, e.g. the stage bars of V-PRO-04) are too long for a pebble and stay `rounded` in organic.
 - Fields inside the container are found by geometry (their box inside the container's box). Containers nested in another (a card in a lane) are never moved; the outer shape falls back when they would stick out.
 - The contrast gate works on text boxes, not on the glyphs: a motif part that crosses the empty end of a wide text box is judged as if it sat under the text.
+- In a deck, arrangement units come from the shape names: a slide whose fields were renamed by hand is not recognised.
 - In a deck, roles come from the shape names only: fields that are also containers (`role=` flags in the index) are not recognised, and slides with a chart or a table are left alone.
