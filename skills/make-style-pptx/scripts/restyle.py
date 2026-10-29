@@ -30,10 +30,12 @@ listed kinds (diagrams and timelines; charts, tables, matrices and illustrations
 never), and only containers whose fields hold at most ``max_chars`` characters in all.
 The ``logo`` role and ``frame`` role are never touched.
 
-Arrangement (#1607, ``_arrange.py``): when the style names one, the units of the layouts
-tagged in the index's ``arrange`` column are laid out again before the shapes are swapped
-(libraries only). Ambience (``ambience`` in the style, see ``_ambience.py``): a quiet
-background motif behind covers, statements and dividers, after the shapes.
+Arrangement (#1607, ``_arrange.py``): when the style names one or more, a library gets an
+arranged copy of each layout tagged in the index's ``arrange`` column, as a new opt-in row
+(``L-38-stagger``, tagged ``expressive``); a deck gets a few slides arranged in place, dosed
+by the style's ``intensity``. Units move before the shapes are swapped. Ambience
+(``ambience`` in the style, see ``_ambience.py``): a quiet background motif behind
+covers, statements and dividers, after the shapes.
 """
 from __future__ import annotations
 
@@ -77,7 +79,7 @@ DEFAULT_SCOPE = {
 # round silhouettes: the text they hold is centred as a group (top-left in a pebble
 # reads as a mistake); rectangles, tickets, torn and hand-drawn cards keep their layout
 CENTRED_KINDS = ("blob", "pebble", "drop", "circle", "cloud", "ellipse")
-HOOKS = ("arrangement",)  # reported as not applied unless _arrange lays the slide out (decks)
+HOOKS = ("arrangement",)  # reported as not applied unless _arrange lays slides out
 
 
 class RestyleError(Exception):
@@ -117,6 +119,11 @@ def load_style(which: str) -> dict:
             if cand.get("kind") not in S.KINDS:
                 raise RestyleError(f"style '{style['name']}', {role}: unknown shape '{cand.get('kind')}'")
     style["roles"] = roles
+    try:
+        AR.style_arrangements(style)
+        AR.style_intensity(style)
+    except ValueError as exc:
+        raise RestyleError(str(exc)) from None
     try:
         style["ambience"] = AMB.normalise(style.get("ambience"))
     except AMB.AmbienceError as exc:
@@ -730,16 +737,16 @@ def restyle_library(src: Path, style: dict, out: Path) -> dict:
         header, rows = read_index(idx)
         prs = Presentation(str(pptx))
         ctx = Ctx(style, char_em, (prs.slide_width, prs.slide_height), deck=False)
+        variants, items = AR.add_variants(sys.modules[__name__], ctx, prs, rows, lib)  # units first (#1607)
+        rows.extend(variants)
         by_slide = {int(r["slide"]): r for r in rows if r.get("slide", "").isdigit()}
-        items = []
         for n, slide in enumerate(prs.slides, 1):
             row = by_slide.get(n)
             if row is None:
                 continue
             fields = parse_fields(row.get("fields", ""))
             scope = in_scope(row, lib, style)
-            got = AR.arrange(sys.modules[__name__], ctx, slide, row, fields, lib, scope)  # units first (#1607)
-            got += restyle_slide(ctx, slide, row["id"], fields, scope)
+            got = restyle_slide(ctx, slide, row["id"], fields, scope)
             limits = {}
             for it in got:
                 for name, f in (it.get("fields") or {}).items():
@@ -763,8 +770,8 @@ def restyle_library(src: Path, style: dict, out: Path) -> dict:
     (out / "restyle.json").write_text(json.dumps(style, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report["summary"] = summarise(all_items)
     report["hooks"] = _hooks(style)
-    if AR.style_arrangement(style):
-        report["hooks"]["arrangement"] = {"requested": style["arrangement"], "applied": True}
+    if AR.style_arrangements(style):
+        report["hooks"]["arrangement"] = {"requested": AR.style_arrangements(style), "applied": True}
     (out / "restyle-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     return report
 
@@ -774,15 +781,21 @@ def restyle_deck(src: Path, style: dict, out: Path) -> dict:
     table are left alone; the fit check uses the deck's real text."""
     prs = Presentation(str(src))
     ctx = Ctx(style, {"heading": 0.52, "body": 0.52}, (prs.slide_width, prs.slide_height), deck=True)
-    items = []
+    slides = []
     for n, slide in enumerate(prs.slides, 1):
         data = any(getattr(sh, "has_chart", False) or getattr(sh, "has_table", False)
                    for coll in collections(slide.shapes) for sh in coll)
-        items.extend(restyle_slide(ctx, slide, f"slide {n}", {}, "slide with a chart or a table" if data else None))
+        slides.append((f"slide {n}", slide, "slide with a chart or a table" if data else None))
+    items, arranged = AR.arrange_deck(sys.modules[__name__], ctx, slides)  # units first (#1607)
+    for key, slide, reason in slides:
+        items.extend(restyle_slide(ctx, slide, key, {}, reason))
     amb = AMB.apply_deck(prs, style)
     save_deterministic(prs, out)
+    hooks = _hooks(style)
+    if arranged:
+        hooks["arrangement"] = arranged
     report = {"style": style["name"], "input": src.name, "kind": "deck", "summary": summarise(items),
-              "hooks": _hooks(style), "items": items}
+              "hooks": hooks, "items": items}
     if amb:
         report["ambience"] = amb
     return report

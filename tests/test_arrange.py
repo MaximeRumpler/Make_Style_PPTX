@@ -1,13 +1,16 @@
 """Arrangement layer: positions per count, grid rules, overlap, margins, reading order, fallback, determinism."""
 import json
 import math
+import shutil
+import subprocess
+import sys
 
 import pytest
 from pptx import Presentation
 
 import _arrange as AR
 import restyle as R
-from test_restyle import FIXTURE, items, shapes_by_id
+from test_restyle import FIXTURE, _make_clean_dir, items, shapes_by_id
 
 E = AR.EMU
 
@@ -148,17 +151,67 @@ def test_unknown_arrangement_refused():
     assert AR.parse_arrange("") is None and AR.parse_arrange("row") is None
 
 
-# ------------------------------------------------------------------ on the Make_Clean fixture
-def test_only_tagged_layouts_change(arranged):
+# ------------------------------------------------------------------ on the Make_Clean fixture (variant rows)
+def variant_ids(report):
+    return {it["variant"]: it for it in arrangement_items_all(report) if it["status"] == "arranged"}
+
+
+def arrangement_items_all(report):
+    return [it for it in items(report) if it["role"] == "arrangement"]
+
+
+def slide_xml(pptx, csv):
+    """{row id: slide XML bytes}."""
+    _, rows = R.read_index(csv)
+    ids = {int(r["slide"]): r["id"] for r in rows}
+    prs = Presentation(str(pptx))
+    from lxml import etree
+    return {ids[n]: etree.tostring(s._element) for n, s in enumerate(prs.slides, 1)}
+
+
+def test_variants_only_for_tagged_layouts(arranged):
     _, rows = R.read_index(FIXTURE / "layouts.csv")
     tagged = {r["id"] for r in rows if r["arrange"]}
+    _, vrows = R.read_index(FIXTURE / "visuals.csv")
     for name, (pack, report) in arranged.items():
         got = arrangement_items(report)
-        assert set(got) == tagged | {r["id"] for r in R.read_index(FIXTURE / "visuals.csv")[1] if r["arrange"]}
+        assert set(got) == tagged | {r["id"] for r in vrows if r["arrange"]}
         for row_id, it in got.items():
             if row_id.startswith("V-"):
                 assert it["status"] == "kept"
-        assert report["hooks"]["arrangement"]["applied"] is True
+        assert report["hooks"]["arrangement"] == {"requested": [name], "applied": True}
+        _, new_rows = R.read_index(pack / "layouts.csv")
+        variants = [r for r in new_rows if r["id"] not in {x["id"] for x in rows}]
+        assert {r["id"] for r in variants} == set(variant_ids(report))
+        assert all(r["id"] == f"{r['id'].rsplit('-', 1)[0]}-{name}" for r in variants)
+
+
+def test_plain_slides_never_change(arranged, tmp_path):
+    """The plain rows of an arranged pack are the rows of the same pack without an arrangement."""
+    plain, _ = R.run(FIXTURE, R.load_style("organic"), tmp_path / "plain")
+    ref = slide_xml(plain / "layouts.pptx", plain / "layouts.csv")
+    _, ref_rows = R.read_index(plain / "layouts.csv")
+    pack, _ = arranged["stagger"]
+    got = slide_xml(pack / "layouts.pptx", pack / "layouts.csv")
+    _, rows = R.read_index(pack / "layouts.csv")
+    assert rows[:len(ref_rows)] == ref_rows
+    assert all(got[i] == x for i, x in ref.items())
+
+
+def test_variant_rows_are_opt_in_and_appended(arranged):
+    _, rows = R.read_index(FIXTURE / "layouts.csv")
+    by_id = {r["id"]: r for r in rows}
+    for name, (pack, report) in arranged.items():
+        _, new_rows = R.read_index(pack / "layouts.csv")
+        assert [int(r["slide"]) for r in new_rows] == list(range(1, len(new_rows) + 1))
+        assert len(Presentation(str(pack / "layouts.pptx")).slides) == len(new_rows)
+        for vid in variant_ids(report):
+            v = next(r for r in new_rows if r["id"] == vid)
+            src = by_id[vid[: -len(name) - 1]]
+            assert "expressive" in v["tags"].split() and name in v["tags"].split()
+            assert v["arrange"] == src["arrange"] and v["category"] == src["category"]
+            assert set(R.parse_fields(v["fields"])) == set(R.parse_fields(src["fields"]))
+            assert AR.is_variant(v) and not AR.is_variant(src)
 
 
 def test_arranged_units_keep_margins_order_and_no_overlap(arranged):
@@ -166,15 +219,13 @@ def test_arranged_units_keep_margins_order_and_no_overlap(arranged):
     by_id = {r["id"]: r for r in rows}
     seen = 0
     for name, (pack, report) in arranged.items():
-        for row_id, it in arrangement_items(report).items():
-            if it["status"] != "arranged":
-                continue
+        for vid, it in variant_ids(report).items():
             seen += 1
-            kind, count, _ = AR.parse_arrange(by_id[row_id]["arrange"])
-            units = units_of(pack, row_id, count)
+            kind, count, _ = AR.parse_arrange(by_id[it["id"]]["arrange"])
+            units = units_of(pack, vid, count)
             rects = [units[n] for n in sorted(units)]
-            assert not AR.overlapping(rects), (name, row_id)
-            assert AR.reading_order(kind, rects) == list(range(count)), (name, row_id)
+            assert not AR.overlapping(rects), (name, vid)
+            assert AR.reading_order(kind, rects) == list(range(count)), (name, vid)
             lim = AR.bounds((AR.inch(AR.GRID["w"]), AR.inch(7.5)), AR._union(rects))
             mx = AR.inch(AR.GRID["margin_x"])
             assert all(r[0] >= mx - R.TOL and r[0] + r[2] <= AR.inch(AR.GRID["w"]) - mx + R.TOL for r in rects)
@@ -187,12 +238,13 @@ def test_arrangement_moves_units(arranged):
     pack, report = arranged["stagger"]
     assert arrangement_items(report)["L-38"]["status"] == "arranged"
     after = shapes_by_id(pack / "layouts.pptx", pack / "layouts.csv")
-    tops = [R.box(after["L-38"][f"KPI {n} value"])[1] - R.box(before["L-38"][f"KPI {n} value"])[1] for n in (1, 2)]
+    tops = [R.box(after["L-38-stagger"][f"KPI {n} value"])[1] - R.box(before["L-38"][f"KPI {n} value"])[1]
+            for n in (1, 2)]
     assert tops[1] - tops[0] >= AR.inch(0.5)
     pack, report = arranged["cascade"]
     if arrangement_items(report)["L-54"]["status"] == "arranged":
         after = shapes_by_id(pack / "layouts.pptx", pack / "layouts.csv")
-        xs = [R.box(after["L-54"][f"Step {n}"])[0] for n in range(1, 6)]
+        xs = [R.box(after["L-54-cascade"][f"Step {n}"])[0] for n in range(1, 6)]
         assert xs == sorted(xs) and xs[-1] > xs[0]
 
 
@@ -203,55 +255,62 @@ def test_max_content_fits_arranged_fields(arranged):
     for name, (pack, report) in arranged.items():
         after = shapes_by_id(pack / "layouts.pptx", pack / "layouts.csv")
         final = {r["id"]: R.parse_fields(r["fields"]) for r in R.read_index(pack / "layouts.csv")[1]}
-        for row_id, it in arrangement_items(report).items():
+        for vid, it in variant_ids(report).items():
             for field, f in (it.get("fields") or {}).items():
-                f = {"limit": final[row_id][field]["limit"], "old_limit": f["old_limit"]}
-                sh = after[row_id][field]
+                f = {"limit": final[vid][field]["limit"], "old_limit": f["old_limit"]}
+                sh = after[vid][field]
                 size, em, caps = R.font_info(sh, {"heading": 0.52, "body": 0.52})
                 unit = size * em * (1.2 if caps else 1.0)
                 li, ti, ri, bi = R.body_insets(sh)
                 x, y, w, h = R.box(sh)
                 lines = math.floor((h - ti - bi) / 12700 / (size * 1.2))
                 per_line = math.floor((w - li - ri) / 12700 / unit)
-                assert lines >= 1 and f["limit"] <= max(4, math.floor(per_line * lines * 0.85)), (name, row_id, field)
+                assert lines >= 1 and f["limit"] <= max(4, math.floor(per_line * lines * 0.85)), (name, vid, field)
                 assert f["limit"] >= math.ceil(0.6 * f["old_limit"]) or f["old_limit"] <= 4
 
 
 def test_csv_limits_lowered_only(arranged):
     _, rows = R.read_index(FIXTURE / "layouts.csv")
     old = {r["id"]: R.parse_fields(r["fields"]) for r in rows}
-    for pack, _ in arranged.values():
+    for name, (pack, _) in arranged.items():
         _, new_rows = R.read_index(pack / "layouts.csv")
         for r in new_rows:
-            for name, f in R.parse_fields(r["fields"]).items():
-                assert set(R.parse_fields(r["fields"])) == set(old[r["id"]])
+            src = r["id"][: -len(name) - 1] if AR.is_variant(r) else r["id"]
+            assert set(R.parse_fields(r["fields"])) == set(old[src])
+            for fname, f in R.parse_fields(r["fields"]).items():
                 if f["limit"] is not None:
-                    assert f["limit"] <= old[r["id"]][name]["limit"]
+                    assert f["limit"] <= old[src][fname]["limit"]
 
 
-def test_fallback_keeps_plain_grid(tmp_path):
-    """When a check fails the slide is left exactly as the shape layer alone leaves it."""
+def test_fallback_adds_no_variant(tmp_path):
+    """When a check fails no variant row is added and the pack is the plain one."""
     st = style_with("cascade")
     st["keep"] = 0.99  # nothing may lose any room: every arrangement that shrinks a text falls back
-    _, report = R.run(FIXTURE, st, tmp_path / "a")
-    plain = R.load_style("organic")
-    plain["keep"] = 0.99
-    _, ref = R.run(FIXTURE, plain, tmp_path / "b")
+    pack, report = R.run(FIXTURE, st, tmp_path / "a")
     got = arrangement_items(report)
     falls = [i for i, it in got.items() if it["status"] == "fallback"]
     assert falls and all(got[i]["reason"].startswith("plain grid kept") for i in falls)
-    a = shapes_by_id(tmp_path / "a" / "layouts.pptx", tmp_path / "a" / "layouts.csv")
-    b = shapes_by_id(tmp_path / "b" / "layouts.pptx", tmp_path / "b" / "layouts.csv")
-    for i in falls:
-        assert {n: R.box(s) for n, s in a[i].items()} == {n: R.box(s) for n, s in b[i].items()}
+    ids = {r["id"] for r in R.read_index(pack / "layouts.csv")[1]}
+    assert not any(f"{i}-cascade" in ids for i in falls)
+    assert len(Presentation(str(pack / "layouts.pptx")).slides) == len(ids)
 
 
-def test_separators_removed_only_when_arranged(arranged):
+def test_separators_removed_only_in_variants(arranged):
     pack, report = arranged["stagger"]
     it = arrangement_items(report)["L-54"]
-    names = shapes_by_id(pack / "layouts.pptx", pack / "layouts.csv")["L-54"]
+    names = shapes_by_id(pack / "layouts.pptx", pack / "layouts.csv")
+    assert "decoration#1" in names["L-54"]
     if it["status"] == "arranged":
-        assert it.get("removed") == ["decoration#1"] and "decoration#1" not in names
+        assert it.get("removed") == ["decoration#1"] and "decoration#1" not in names["L-54-stagger"]
+
+
+def test_several_arrangements_one_variant_each(tmp_path):
+    st = style_with(["arc", "stagger", "arc"])
+    assert AR.style_arrangements(st) == ["arc", "stagger"]
+    pack, report = R.run(FIXTURE, st, tmp_path / "p")
+    ids = [r["id"] for r in R.read_index(pack / "layouts.csv")[1]]
+    assert "L-38-arc" in ids and "L-38-stagger" in ids and len(ids) == len(set(ids))
+    assert report["hooks"]["arrangement"]["requested"] == ["arc", "stagger"]
 
 
 def test_deterministic_bytes_with_arrangement(tmp_path):
@@ -270,5 +329,120 @@ def test_deterministic_bytes_with_arrangement(tmp_path):
 
 def test_no_arrangement_no_change(tmp_path):
     """A style without an arrangement gives the same pack as before this layer existed."""
-    _, report = R.run(FIXTURE, R.load_style("organic"), tmp_path / "p")
+    pack, report = R.run(FIXTURE, R.load_style("organic"), tmp_path / "p")
     assert not arrangement_items(report)
+    assert R.read_index(pack / "layouts.csv")[1] == [
+        {**r, "fields": r["fields"]} for r in R.read_index(pack / "layouts.csv")[1]]
+    assert len(R.read_index(pack / "layouts.csv")[1]) == len(R.read_index(FIXTURE / "layouts.csv")[1])
+
+
+# ------------------------------------------------------------------ decks: dosage
+def deck_copy(tmp_path):
+    """The fixture library as a deck: 8 slides, units on slides 4 (row:4), 6 (column:4), 8 (column:5)."""
+    deck = tmp_path / "deck.pptx"
+    shutil.copyfile(FIXTURE / "layouts.pptx", deck)
+    return deck
+
+
+@pytest.mark.parametrize("n,intensity,budget,gap", [
+    (10, "calm", 1, 9), (10, "balanced", 3, 3), (10, "bold", 4, 2), (20, "balanced", 6, 3),
+    (8, "balanced", 2, 3), (3, "bold", 1, 2), (30, "bold", 12, 2)])
+def test_dosage_budget_and_gap(n, intensity, budget, gap):
+    assert AR.dosage(n, intensity) == (budget, gap)
+    assert gap >= 2  # never two arranged slides in a row
+
+
+def test_deck_units_from_shape_names():
+    prs = Presentation(str(FIXTURE / "layouts.pptx"))
+    found = [AR.deck_units(R, s) for s in prs.slides]
+    kinds = [f[:2] if not isinstance(f, str) else None for f in found]
+    assert kinds == [None, None, None, ("row", 4), None, ("column", 4), None, ("column", 5)]
+
+
+def test_deck_dosage_never_two_in_a_row(tmp_path):
+    st = style_with(["stagger", "arc"])
+    out, report = R.run(deck_copy(tmp_path), st, tmp_path / "out.pptx")
+    hook = report["hooks"]["arrangement"]
+    assert hook["applied"] and hook["budget"] == 2 and hook["gap"] == 3
+    got = {it["id"]: it for it in report["items"] if it["role"] == "arrangement"}
+    assert set(got) == {"slide 4", "slide 6", "slide 8"}
+    assert got["slide 4"]["status"] == "arranged" and got["slide 4"]["arrangement"] == "stagger"
+    assert got["slide 6"]["status"] == "kept" and got["slide 6"]["reason"].startswith("dosage")
+    assert got["slide 8"]["status"] == "arranged" and got["slide 8"]["arrangement"] == "arc"  # they take turns
+    nums = [int(i.split()[1]) for i in hook["arranged"]]
+    assert all(b - a >= 2 for a, b in zip(nums, nums[1:])) and len(nums) <= hook["budget"]
+    # the arranged slide moved, the kept one did not
+    before = list(Presentation(str(FIXTURE / "layouts.pptx")).slides)
+    after = list(Presentation(str(out)).slides)
+    pos = lambda s, n: R.box(next(sh for sh in s.shapes if sh.name == n))  # noqa: E731
+    assert pos(after[3], "KPI 2 value")[1] > pos(before[3], "KPI 2 value")[1]
+    assert pos(after[5], "Point 2")[:2] == pos(before[5], "Point 2")[:2]
+
+
+def test_deck_calm_and_fallback(tmp_path):
+    st = style_with("cascade")
+    st["intensity"] = "calm"
+    _, report = R.run(deck_copy(tmp_path), st, tmp_path / "calm.pptx")
+    assert report["hooks"]["arrangement"]["arranged"] == ["slide 4"]
+    # a text that no longer fits makes slide 4 fall back; the budget goes to the next candidate
+    deck = deck_copy(tmp_path)
+    prs = Presentation(str(deck))
+    detail = next(sh for sh in prs.slides[3].shapes if sh.name == "KPI 1 detail")
+    detail.text_frame.text = "A long explanation " * 12
+    prs.save(str(deck))
+    _, report = R.run(deck, st, tmp_path / "fb.pptx")
+    got = {it["id"]: it for it in report["items"] if it["role"] == "arrangement"}
+    assert got["slide 4"]["status"] == "fallback" and got["slide 4"]["reason"].startswith("plain grid kept")
+    assert report["hooks"]["arrangement"]["arranged"] == ["slide 6"]
+
+
+def test_deck_arrangement_deterministic(tmp_path):
+    st = style_with(["deconstructed", "stagger"], "paper")
+    deck = deck_copy(tmp_path)
+    a, _ = R.run(deck, st, tmp_path / "a.pptx")
+    b, _ = R.run(deck, st, tmp_path / "b.pptx")
+    assert a.read_bytes() == b.read_bytes()
+
+
+def test_unknown_intensity_refused(tmp_path):
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({"roles": {}, "arrangement": "arc", "intensity": "loud"}))
+    with pytest.raises(R.RestyleError):
+        R.load_style(str(p))
+    p.write_text(json.dumps({"roles": {}, "arrangement": ["arc", "spiral"]}))
+    with pytest.raises(R.RestyleError):
+        R.load_style(str(p))
+
+
+# ------------------------------------------------------------------ Make_Clean round trip
+@pytest.mark.skipif(_make_clean_dir() is None, reason="set MAKE_CLEAN_DIR to a Make_Clean_PPTX clone (v1.1.0)")
+def test_make_clean_builds_variant_rows_and_deck_restyles(arranged, tmp_path):
+    """Make_Clean builds a deck from a variant row of the pack (an ordinary row to it), lints it,
+    and the deck it builds from the plain rows can be arranged by the deck mode."""
+    scripts = _make_clean_dir()
+    pack, report = arranged["stagger"]
+    assert "L-38-stagger" in variant_ids(report)
+    kpis = {"Title": "Four numbers to watch", "KPI 1 value": "66%", "KPI 1 label": "Heating share",
+            "KPI 2 value": "3x", "KPI 2 label": "Heat pump gain", "KPI 3 value": "4 yrs",
+            "KPI 3 label": "Loft payback", "KPI 4 value": "12%", "KPI 4 label": "Hot water"}
+    spec = {"slides": [{"id": "L-38-stagger", "fill": kpis}, {"id": "L-24", "fill": {
+        "Title": "Heating is most of the bill", "Body": "Two thirds of home energy", "Takeaway": "Insulate first."}},
+        {"id": "L-38", "fill": kpis}]}
+    (tmp_path / "deck.json").write_text(json.dumps(spec), encoding="utf-8")
+    deck = tmp_path / "deck.pptx"
+    r = subprocess.run([sys.executable, str(scripts / "build_deck.py"), "--spec", str(tmp_path / "deck.json"),
+                        "--out", str(deck), "--local-dir", str(pack)], capture_output=True, text=True, timeout=240)
+    assert r.returncode == 0, r.stdout + r.stderr
+    r = subprocess.run([sys.executable, str(scripts / "lint_deck.py"), str(deck), "--json"], capture_output=True,
+                       text=True, timeout=240)
+    assert r.returncode == 0, r.stdout + r.stderr
+    plain = {"slides": [spec["slides"][1], spec["slides"][2]]}
+    (tmp_path / "plain.json").write_text(json.dumps(plain), encoding="utf-8")
+    r = subprocess.run([sys.executable, str(scripts / "build_deck.py"), "--spec", str(tmp_path / "plain.json"),
+                        "--out", str(tmp_path / "plain.pptx")], capture_output=True, text=True, timeout=240)
+    assert r.returncode == 0, r.stdout + r.stderr
+    _, rep = R.run(tmp_path / "plain.pptx", style_with("arc"), tmp_path / "plain-arc.pptx")
+    assert rep["hooks"]["arrangement"]["arranged"] == ["slide 2"]
+    r = subprocess.run([sys.executable, str(scripts / "lint_deck.py"), str(tmp_path / "plain-arc.pptx"), "--json"],
+                       capture_output=True, text=True, timeout=240)
+    assert r.returncode == 0, r.stdout + r.stderr

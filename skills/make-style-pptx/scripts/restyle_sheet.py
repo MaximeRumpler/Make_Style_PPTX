@@ -3,10 +3,14 @@
 
     restyle_sheet.py <library folder> --style organic [--ids L-24,L-38,...] [--png docs/restyle-organic.png]
     restyle_sheet.py <library folder> --style organic --arrangement stagger   # docs/arrange-stagger.png
+    restyle_sheet.py deck.pptx --style paper --arrangement stagger,arc,deconstructed,cascade
+        # docs/arrange-deck.png: deck built by Make_Clean from tests/fixtures/sample-deck/deck.json
 
 Keeps only the chosen slides of the library (a small copy), restyles that copy, renders
 both with LibreOffice and pdftoppm, and lays them out side by side, one row per
-layout, with what the restyler did under each pair. Needs LibreOffice for the PNG.
+layout, with what the restyler did under each pair. With an arrangement, the right side
+shows the arranged variant row (``L-38-stagger``) when there is one. With a deck, every
+slide is shown, with the dosage decision under it. Needs LibreOffice for the PNG.
 """
 from __future__ import annotations
 
@@ -89,11 +93,20 @@ def _font(size):
     return ImageFont.load_default()
 
 
-def caption(report: dict, row_id: str) -> str:
+def caption(report: dict, row_id: str, shown: str = None) -> str:
+    """What happened to ``row_id``; ``shown`` is the row on the right (its arranged variant)."""
     bits = []
+    shown = shown or row_id
     for lib in report["libraries"].values():
         for it in lib["items"]:
-            if it["id"] != row_id or it["status"] in ("kept", "out-of-scope"):
+            if it["role"] == "arrangement":
+                if it["id"] != row_id or (shown != row_id and it.get("variant") != shown):
+                    continue
+                if shown == row_id and it["status"] == "arranged":
+                    continue
+            elif it["id"] != shown:
+                continue
+            if it["status"] in ("kept", "out-of-scope"):
                 continue
             if it["status"] == "arranged":
                 what = it["arrangement"]
@@ -113,19 +126,40 @@ def caption(report: dict, row_id: str) -> str:
     return ", ".join(seen[:6]) + (" ..." if len(seen) > 6 else "") or "nothing to restyle"
 
 
+def _style(style_name: str, arrangement: str = None, intensity: str = None) -> dict:
+    style = R.load_style(style_name)
+    if arrangement:
+        style["arrangement"] = [a.strip() for a in arrangement.split(",") if a.strip()]
+    if intensity:
+        style["intensity"] = intensity
+    return style
+
+
 def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60, arrangement: str = None) -> Path:
     from PIL import Image, ImageDraw
 
     if not soffice() or not shutil.which("pdftoppm"):
         raise R.RestyleError("LibreOffice and pdftoppm are needed for the PNG")
-    style = R.load_style(style_name)
-    if arrangement:
-        style["arrangement"] = arrangement
+    style = _style(style_name, arrangement)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         before = tmp / "before"
         kept = subset(src, before, set(ids))
         after, report = R.run(before, style, tmp / "after")
+        # the right side shows the arranged variant of a row when there is one
+        slide_of = {}
+        offset = 0
+        for lib in ("layouts", "visuals"):
+            if (after / f"{lib}.csv").is_file():
+                _, rows = R.read_index(after / f"{lib}.csv")
+                for r in rows:
+                    slide_of[r["id"]] = offset + int(r["slide"]) - 1
+                offset += len(rows)
+        names = R.AR.style_arrangements(style)
+        shown = {}
+        for row_id in kept:
+            shown[row_id] = next((f"{row_id}-{n}" for n in names if f"{row_id}-{n}" in slide_of), row_id)
+        before_at = {row_id: i for i, row_id in enumerate(kept)}
         pages = {}
         for side, folder in (("before", before), ("after", after)):
             imgs = []
@@ -142,10 +176,54 @@ def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60, arrangement
     d.text((pad + w + pad, 20), "before (left), after (right)",
            fill=(90, 90, 90), font=_font(13))
     y = head
-    for i, row_id in enumerate(kept):
-        sheet.paste(pages["before"][i], (pad, y))
-        sheet.paste(pages["after"][i], (pad * 2 + w, y))
-        d.text((pad, y + h + 6), f"{row_id}  {caption(report, row_id)}", fill=(40, 40, 40), font=_font(14))
+    for row_id in kept:
+        sheet.paste(pages["before"][before_at[row_id]], (pad, y))
+        sheet.paste(pages["after"][slide_of[shown[row_id]]], (pad * 2 + w, y))
+        label = row_id if shown[row_id] == row_id else f"{row_id} -> {shown[row_id]}"
+        d.text((pad, y + h + 6), f"{label}  {caption(report, row_id, shown[row_id])}", fill=(40, 40, 40),
+               font=_font(14))
+        y += h + cap + pad
+    png.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(png, optimize=True)
+    return png
+
+
+def build_deck(deck: Path, style_name: str, png: Path, dpi: int = 40, arrangement: str = None,
+               intensity: str = None) -> Path:
+    """Before/after of every slide of a deck, with the arrangement decision under each pair."""
+    from PIL import Image, ImageDraw
+
+    if not soffice() or not shutil.which("pdftoppm"):
+        raise R.RestyleError("LibreOffice and pdftoppm are needed for the PNG")
+    style = _style(style_name, arrangement, intensity)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        (tmp / "before").mkdir()
+        before = tmp / "before" / "deck.pptx"
+        shutil.copyfile(deck, before)
+        (tmp / "after").mkdir()
+        after, report = R.run(before, style, tmp / "after" / "deck.pptx")
+        pages = {side: render_pages(f, tmp / f"r-{side}", dpi) for side, f in (("before", before), ("after", after))}
+    notes = {}
+    for it in report["items"]:
+        if it["role"] == "arrangement":
+            notes[it["id"]] = (f"{it['arrange']}: {it['arrangement']}" if it["status"] == "arranged"
+                               else f"{it['arrange']}: {it['status']}, {it.get('reason', '')}")
+    w, h = pages["before"][0].size
+    pad, head, cap = 12, 56, 26
+    sheet = Image.new("RGB", (pad * 3 + w * 2, head + len(pages["before"]) * (h + cap + pad) + pad), (236, 236, 232))
+    d = ImageDraw.Draw(sheet)
+    hook = report["hooks"].get("arrangement") or {}
+    d.text((pad, 12), f"Deck: {style['name']} + {', '.join(hook.get('requested', []))}", fill=(20, 20, 20),
+           font=_font(20))
+    d.text((pad, 36), f"intensity {hook.get('intensity')}: {hook.get('budget')} arranged slides at most, "
+           f"{hook.get('gap')} slides apart at least. Before (left), after (right).", fill=(90, 90, 90), font=_font(13))
+    y = head
+    for i, (b, a) in enumerate(zip(pages["before"], pages["after"]), 1):
+        sheet.paste(b, (pad, y))
+        sheet.paste(a, (pad * 2 + w, y))
+        text = notes.get(f"slide {i}", "no repeated units")
+        d.text((pad, y + h + 5), f"slide {i}  {text}"[:150], fill=(40, 40, 40), font=_font(13))
         y += h + cap + pad
     png.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(png, optimize=True)
@@ -154,16 +232,24 @@ def build(src: Path, style_name: str, ids, png: Path, dpi: int = 60, arrangement
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("library", type=Path)
+    ap.add_argument("library", type=Path, help="library folder, or a built deck (.pptx)")
     ap.add_argument("--style", required=True)
     ap.add_argument("--ids", default=",".join(DEFAULT_IDS))
     ap.add_argument("--png", type=Path)
     ap.add_argument("--dpi", type=int, default=60)
-    ap.add_argument("--arrangement", help="override the style's arrangement (stagger, cascade, arc, deconstructed)")
+    ap.add_argument("--arrangement", help="override the style's arrangements, comma separated "
+                    "(stagger, cascade, arc, deconstructed)")
+    ap.add_argument("--intensity", help="override the style's intensity (calm, balanced, bold), decks")
     args = ap.parse_args(argv)
-    stem = f"arrange-{args.arrangement}" if args.arrangement else f"restyle-{Path(args.style).stem}"
+    stem = f"arrange-{args.arrangement.split(',')[0]}" if args.arrangement else f"restyle-{Path(args.style).stem}"
+    if args.library.suffix.lower() == ".pptx":
+        stem = "arrange-deck"
     png = args.png or REPO / "docs" / f"{stem}.png"
     try:
+        if args.library.suffix.lower() == ".pptx":
+            build_deck(args.library, args.style, png, min(args.dpi, 40), args.arrangement, args.intensity)
+            print(f"wrote {png}")
+            return 0
         build(args.library, args.style, [i.strip() for i in args.ids.split(",") if i.strip()], png, args.dpi,
               args.arrangement)
     except R.RestyleError as exc:

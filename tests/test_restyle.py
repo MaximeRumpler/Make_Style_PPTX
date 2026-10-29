@@ -237,7 +237,7 @@ def test_deck_mode_and_hooks(tmp_path):
     out, report = R.run(deck, style)
     assert out.name == "deck-paper.pptx" and out.is_file()
     assert report["kind"] == "deck" and report["summary"]["total"].get("restyled")
-    assert report["hooks"]["arrangement"]["applied"] is False
+    assert report["hooks"]["arrangement"]["applied"] is True  # dosed, see test_arrange
     Presentation(str(out))
     assert R.main([str(deck), "--style", "paper", "--force"]) == 0
     assert (tmp_path / "deck-paper.report.json").is_file()

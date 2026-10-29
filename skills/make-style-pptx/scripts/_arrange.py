@@ -20,11 +20,17 @@ why: each text field still fits (same checks as the restyler), no unit overlaps 
 box of the slide, every unit stays inside the margins and the content band, and the visual
 reading order (left to right in a row, top to bottom in a column) is the order of the units.
 
-Geometry (``positions``, ``fit_stack`` and the checks) is pure and works in EMU; ``arrange``
-is the hook called by restyle.py for each slide of a library.
+Dosage (#1617): an arranged slide is an expressive slide. In a library, arranged layouts are
+added as new opt-in rows (``L-38-stagger``, tagged ``expressive``) next to the plain ones, so
+the agent building the deck picks them sparingly; in a deck, the style's ``intensity`` sets how
+many slides are arranged (calm 1, balanced 3, bold 4 per 10), never two in a row.
+
+Geometry (``positions``, ``fit_stack`` and the checks) is pure and works in EMU;
+``add_variants`` (libraries) and ``arrange_deck`` (decks) are the hooks called by restyle.py.
 """
 from __future__ import annotations
 
+import copy
 import math
 import re
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -57,6 +63,11 @@ DECONSTRUCTED_ROW = {
 # the largest indent used from its width, so the right edges stay on one line.
 DECONSTRUCTED_COLUMN = (0, 3, 1, 2, 0, 3)
 MAX_SHIFT_HALF = 3
+
+# Arranged slides allowed per 10 slides of a deck, by the style's intensity (#1617).
+INTENSITY = {"calm": 1, "balanced": 3, "bold": 4}
+# How a variant row describes its layout (index ``description``).
+PHRASE = {"stagger": "a stagger", "cascade": "a cascade", "arc": "an arc", "deconstructed": "a deconstructed grid"}
 
 UNIT_NUMBER = re.compile(r"(?<!\S)(\d+)(?!\S)")
 ARRANGE = re.compile(r"^(row|column|grid):(\d+)(:ordered)?$")
@@ -94,15 +105,39 @@ def parse_arrange(value: str) -> Optional[Tuple[str, int, bool]]:
     return (m.group(1), int(m.group(2)), bool(m.group(3))) if m else None
 
 
-def style_arrangement(style: dict) -> Optional[str]:
-    """The arrangement a style asks for (``"arc"`` or ``{"name": "arc"}``), validated."""
+def style_arrangements(style: dict) -> List[str]:
+    """The arrangements a style asks for, in order: ``"arc"``, ``["arc", "stagger"]``,
+    ``{"name": "arc"}`` or ``{"names": [...]}``; validated, [] for none."""
     spec = style.get("arrangement")
+    if isinstance(spec, dict):
+        spec = spec.get("names") or spec.get("name")
     if not spec:
-        return None
-    name = spec.get("name") if isinstance(spec, dict) else spec
-    if name not in NAMES:
-        raise ValueError(f"style '{style.get('name')}': unknown arrangement '{name}' (known: {', '.join(NAMES)})")
-    return name
+        return []
+    names = [spec] if isinstance(spec, str) else list(spec)
+    for name in names:
+        if name not in NAMES:
+            raise ValueError(f"style '{style.get('name')}': unknown arrangement '{name}' (known: {', '.join(NAMES)})")
+    return list(dict.fromkeys(names))
+
+
+def style_arrangement(style: dict) -> Optional[str]:
+    """The first arrangement a style asks for, or None."""
+    names = style_arrangements(style)
+    return names[0] if names else None
+
+
+def style_intensity(style: dict) -> str:
+    value = style.get("intensity") or "balanced"
+    if value not in INTENSITY:
+        raise ValueError(f"style '{style.get('name')}': unknown intensity '{value}' (known: {', '.join(INTENSITY)})")
+    return value
+
+
+def dosage(slides: int, intensity: str) -> Tuple[int, int]:
+    """(budget, gap) for a deck: at most ``budget`` arranged slides, at least ``gap`` slides
+    from one to the next (2 = never two in a row; larger spreads them over the deck)."""
+    budget = max(1, slides * INTENSITY[intensity] // 10)
+    return budget, max(2, math.ceil(slides / budget) - 1)
 
 
 # ------------------------------------------------------------------ positions
@@ -365,29 +400,202 @@ def place_unit(R, ctx, members, container, old: Rect, new: Rect, text_fields: Di
     return out
 
 
-def arrange(R, ctx, slide, row: dict, fields: Dict[str, dict], lib: str, scope_reason: Optional[str]) -> List[dict]:
-    """Hook for restyle.py: arrange the units of one library slide. Returns [] when the style
-    or the row asks for nothing, else one report item (arranged, fallback, out of scope or kept).
-    The slide is changed only when the arrangement passes every check."""
-    name = style_arrangement(ctx.style)
-    tag = parse_arrange(row.get("arrange", ""))
-    if not name or not tag:
-        return []
-    kind, count, ordered = tag
-    item = {"id": row["id"], "shape": "arrangement", "role": "arrangement", "arrangement": name,
-            "arrange": row.get("arrange")}
-    if lib != "layouts":
-        item.update(status="kept", reason="visuals keep their arrangement in this version")
-        return [item]
-    if scope_reason:
-        item.update(status="out-of-scope", reason=scope_reason)
-        return [item]
-    why = _arrange(R, ctx, slide, fields, kind, count, name, item)
-    if why:
-        item.update(status="fallback", reason=f"plain grid kept: {why}")
+# ------------------------------------------------------------------ libraries: variant rows
+P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
+R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+RT_LAYOUT = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout"
+RT_NOTES = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"
+RT_CHART = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+
+
+def is_variant(row: dict) -> bool:
+    """A row this layer added (``L-38-stagger``): never arranged again."""
+    return any(row.get("id", "").endswith(f"-{n}") for n in NAMES) and "expressive" in row.get("tags", "").split()
+
+
+def duplicate_slide(prs, slide):
+    """Append a copy of ``slide`` (shapes, background, pictures and links) to ``prs``."""
+    new = prs.slides.add_slide(slide.slide_layout)
+    tree = new.shapes._spTree
+    keep = ("{%s}nvGrpSpPr" % P_NS, "{%s}grpSpPr" % P_NS)
+    for el in list(tree):
+        if el.tag not in keep:
+            tree.remove(el)
+    rmap = {}
+    for rid, rel in slide.part.rels.items():
+        if rel.reltype in (RT_LAYOUT, RT_NOTES):
+            continue
+        if rel.is_external:
+            rmap[rid] = new.part.relate_to(rel.target_ref, rel.reltype, is_external=True)
+        else:
+            rmap[rid] = new.part.relate_to(rel.target_part, rel.reltype)
+    for el in slide.shapes._spTree:
+        if el.tag not in keep and el.tag != "{%s}extLst" % P_NS:
+            tree.append(copy.deepcopy(el))
+    bg = slide._element.cSld.find("{%s}bg" % P_NS)
+    if bg is not None:
+        new._element.cSld.insert(0, copy.deepcopy(bg))
+    for el in new._element.iter():
+        for attr, val in list(el.attrib.items()):
+            if attr.startswith("{%s}" % R_NS) and val in rmap:
+                el.set(attr, rmap[val])
+    return new
+
+
+def drop_slide(prs, slide) -> None:
+    sld = prs.slides._sldIdLst
+    for el in list(sld):
+        if prs.slides.get(int(el.get("id"))) is slide:
+            prs.part.drop_rel(el.get("{%s}id" % R_NS))
+            sld.remove(el)
+            return
+
+
+def variant_row(row: dict, name: str, slide_no: int, limits: Dict[str, int], set_limits) -> dict:
+    """Index row of an arranged copy of ``row``: new id and slide, tagged ``expressive`` (opt-in
+    in Make_Clean's index), the same fields with the limits the arrangement lowered."""
+    out = dict(row)
+    out["id"] = f"{row['id']}-{name}"
+    out["slide"] = str(slide_no)
+    out["name"] = f"{row.get('name', '')}, {name}"
+    out["description"] = f"{row.get('description', '')} Units laid out as {PHRASE[name]}.".strip()
+    out["use_when"] = f"Same use as {row['id']}, for one standout slide: 2-3 per 10 at most, never two in a row."
+    out["tags"] = f"{row.get('tags', '')} expressive {name}".strip()
+    if limits:
+        out["fields"] = set_limits(row["fields"], limits)
+    return out
+
+
+def add_variants(R, ctx, prs, rows: List[dict], lib: str) -> Tuple[List[dict], List[dict]]:
+    """Hook for restyle.py, before the shapes: for every row tagged ``row:N`` / ``column:N``
+    and every arrangement of the style, an arranged copy of the slide is appended to ``prs``
+    when every check passes (the plain slide is never changed). Returns (new index rows,
+    report items)."""
+    names = style_arrangements(ctx.style)
+    if not names:
+        return [], []
+    by_slide = {int(r["slide"]): r for r in rows if r.get("slide", "").isdigit()}
+    originals = list(prs.slides)
+    new_rows: List[dict] = []
+    items: List[dict] = []
+    for n, slide in enumerate(originals, 1):
+        row = by_slide.get(n)
+        tag = parse_arrange(row.get("arrange", "")) if row else None
+        if not tag or is_variant(row):
+            continue
+        kind, count, _ = tag
+        fields = R.parse_fields(row.get("fields", ""))
+        scope = R.in_scope(row, lib, ctx.style)
+        for name in names:
+            item = {"id": row["id"], "shape": "arrangement", "role": "arrangement", "arrangement": name,
+                    "arrange": row.get("arrange")}
+            items.append(item)
+            if lib != "layouts":
+                item.update(status="kept", reason="visuals keep their arrangement in this version")
+                continue
+            if scope:
+                item.update(status="out-of-scope", reason=scope)
+                continue
+            if any(rel.reltype == RT_CHART for rel in slide.part.rels.values()):
+                item.update(status="kept", reason="slide with a chart")
+                continue
+            dup = duplicate_slide(prs, slide)
+            why = _arrange(R, ctx, dup, fields, kind, count, name, item)
+            if why:
+                drop_slide(prs, dup)
+                item.update(status="fallback", reason=f"plain grid kept: {why}")
+                continue
+            limits = {f: v["limit"] for f, v in item.get("fields", {}).items() if v["limit"] != v["old_limit"]}
+            vrow = variant_row(row, name, len(prs.slides), limits, R.set_limits)
+            item.update(status="arranged", variant=vrow["id"])
+            new_rows.append(vrow)
+    return new_rows, items
+
+
+# ------------------------------------------------------------------ decks: units from the shape names
+def deck_units(R, slide):
+    """(kind, count, fields) of a built deck's slide, or a reason. A deck carries no layout
+    id, so the units come from the shape names Make_Clean keeps: fields numbered 1..N (two
+    or more), sharing at least one text field name, side by side (row) or stacked (column)."""
+    fields: Dict[str, dict] = {}
+    for sh in slide.shapes:
+        if R.TAG.match(sh.name) or sh.is_placeholder:  # slide number, date: not part of the layout
+            continue
+        text = sh.has_text_frame and sh.text_frame.text.strip()
+        fields[sh.name] = {"type": "text" if text else "shape", "limit": None, "role": None}
+    numbered: Dict[int, List[str]] = {}
+    for name in fields:
+        n = unit_number(name)
+        if n is not None:
+            numbered.setdefault(n, []).append(name)
+    count = len(numbered)
+    if count < 2:
+        return "no repeated units"
+    if sorted(numbered) != list(range(1, count + 1)):
+        return f"numbered shapes {sorted(numbered)} are not units 1..{count}"
+    common = None
+    for n, names in numbered.items():
+        sig = {UNIT_NUMBER.sub("#", nm, count=1) for nm in names if fields[nm]["type"] == "text"}
+        common = sig if common is None else common & sig
+    if not common:
+        return "the units share no text field"
+    by_name = {sh.name: sh for sh in slide.shapes}
+    rects = [_union([R.box(by_name[nm]) for nm in numbered[n]]) for n in range(1, count + 1)]
+    tol = inch(0.1)
+    xs, ys = [r[0] for r in rects], [r[1] for r in rects]
+    if max(ys) - min(ys) <= tol and xs == sorted(xs) and len(set(xs)) == count:
+        kind = "row"
+    elif max(xs) - min(xs) <= tol and ys == sorted(ys) and len(set(ys)) == count:
+        kind = "column"
     else:
-        item["status"] = "arranged"
-    return [item]
+        return "the units are neither one row nor one column"
+    return kind, count, fields
+
+
+def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
+    """Hook for restyle.py, decks: arrange a few slides, before their shapes are swapped.
+    ``slides`` is [(key, slide, reason or None)] in deck order. The style's arrangements
+    take turns (the next one is tried when one falls back); the dosage keeps at most
+    ``budget`` arranged slides, ``gap`` slides apart. Returns (report items, summary)."""
+    names = style_arrangements(ctx.style)
+    if not names:
+        return [], {}
+    intensity = style_intensity(ctx.style)
+    budget, gap = dosage(len(slides), intensity)
+    items: List[dict] = []
+    last, turn = None, 0
+    for i, (key, slide, reason) in enumerate(slides):
+        if reason:
+            continue
+        found = deck_units(R, slide)
+        if isinstance(found, str):
+            continue
+        kind, count, fields = found
+        item = {"id": key, "shape": "arrangement", "role": "arrangement", "arrange": f"{kind}:{count}"}
+        items.append(item)
+        used = sum(1 for it in items if it.get("status") == "arranged")
+        if used >= budget:
+            plural = "s" if budget > 1 else ""
+            item.update(status="kept", reason=f"dosage: {budget} arranged slide{plural} at most ({intensity})")
+            continue
+        if last is not None and i - last < gap:
+            item.update(status="kept", reason=f"dosage: too close to {slides[last][0]} ({gap} slides apart at least)")
+            continue
+        reasons = []
+        for k in range(len(names)):
+            name = names[(turn + k) % len(names)]
+            trial = {}
+            why = _arrange(R, ctx, slide, fields, kind, count, name, trial)
+            if not why:
+                item.update(status="arranged", arrangement=name, **trial)
+                last, turn = i, turn + k + 1
+                break
+            reasons.append(f"{name}: {why}")
+        else:
+            item.update(status="fallback", reason="plain grid kept: " + "; ".join(reasons))
+    summary = {"requested": names, "applied": True, "intensity": intensity, "budget": budget, "gap": gap,
+               "arranged": [it["id"] for it in items if it["status"] == "arranged"]}
+    return items, summary
 
 
 def _arrange(R, ctx, slide, fields, kind, count, name, item) -> Optional[str]:
