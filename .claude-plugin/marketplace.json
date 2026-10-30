@@ -1,0 +1,23 @@
+{
+  "name": "make-style-pptx",
+  "description": "The make-style-pptx agent skill: the same PowerPoint deck in another style, checked so every word still fits.",
+  "owner": {
+    "name": "Maxime Rumpler",
+    "url": "https://github.com/MaximeRumpler"
+  },
+  "plugins": [
+    {
+      "name": "make-style-pptx",
+      "source": "./",
+      "description": "Gives a clean PowerPoint deck another look: other shapes, a few slides off the grid, a quiet motif, content untouched.",
+      "version": "0.1.0",
+      "license": "EUPL-1.2",
+      "keywords": [
+        "pptx",
+        "powerpoint",
+        "presentation",
+        "style"
+      ]
+    }
+  ]
+}
