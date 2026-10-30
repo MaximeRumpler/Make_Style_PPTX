@@ -1,0 +1,28 @@
+Make Style PPTX
+Copyright (c) 2026 Maxime Rumpler
+
+Licensed under the European Union Public Licence v. 1.2 (EUPL-1.2), see LICENSE.txt.
+The EUPL is available in all official languages of the European Union, all
+versions having the same validity: https://interoperable-europe.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+
+What this means: you may use, copy, modify and distribute this work freely. If you
+distribute a modified version, or make it available to others over a network
+(for example as an online service), you must share its source code under the
+EUPL or a licence listed as compatible in its appendix.
+
+
+YOUR PRESENTATIONS AND STYLES ARE YOURS
+---------------------------------------
+As an additional permission from the copyright holder, presentations, styles,
+documents, images and any other output that you create with this software are
+not subject to the obligations of the EUPL. You may use, modify, distribute and
+license them as you wish, with no attribution required. The copyleft applies to
+the software itself, not to the decks and styles you make with it.
+
+
+THIRD-PARTY MATERIAL
+--------------------
+assets/icons/ holds a few icons from Phosphor Icons (MIT, Copyright (c) 2023
+Phosphor Icons) and Tabler Icons (MIT, Copyright (c) 2020-2026 Pawel Kuna), each
+with its licence file. scripts/_svg.py is vendored from Make_Clean_PPTX (same
+author, EUPL-1.2). assets/sample-deck.pptx was built with Make_Clean_PPTX.
