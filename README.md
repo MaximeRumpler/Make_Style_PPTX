@@ -1,61 +1,96 @@
 <div align="center">
 
-[![Make_Style_PPTX](docs/banner.svg)](https://github.com/MaximeRumpler/Make_Style_PPTX)
+[![Make_Style_PPTX, an agent skill that gives a clean PowerPoint deck another look: rounded and paper-like shapes, staggered and arced layouts, quiet backgrounds](docs/banner.svg)](https://github.com/MaximeRumpler/Make_Style_PPTX)
 
-*From your content, first Make_Clean, then give it a style.*
+*Give your clean deck another look. Same content, same figures, new shapes and layouts.*
 
-[![License](https://img.shields.io/badge/License-EUPL--1.2-10B981?style=flat-square&labelColor=1C2333)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-in_preparation-10B981?style=flat-square&labelColor=1C2333)](#roadmap)
-[![Companion](https://img.shields.io/badge/Companion_of-Make__Clean__PPTX-10B981?style=flat-square&labelColor=1C2333)](https://github.com/MaximeRumpler/Make_Clean_PPTX)
+<sub lang="fr">En français : donnez un autre style à votre présentation, sans changer son contenu.</sub>
+
+[![CI](https://img.shields.io/github/actions/workflow/status/MaximeRumpler/Make_Style_PPTX/ci.yml?branch=main&style=flat-square&label=CI&color=10B981&labelColor=1C2333)](https://github.com/MaximeRumpler/Make_Style_PPTX/actions/workflows/ci.yml)
+[![Licence](https://img.shields.io/badge/Licence-EUPL--1.2-10B981?style=flat-square&labelColor=1C2333)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-preview-10B981?style=flat-square&labelColor=1C2333)](#install)
+[![Make PPTX](https://img.shields.io/badge/Set-Make_PPTX-10B981?style=flat-square&labelColor=1C2333)](https://github.com/MaximeRumpler/Make_PPTX)
 
 </div>
 
 * * *
 
-## What it will do
+<div align="center">
 
-Make Style PPTX is a companion *skill* of [**Make_Clean_PPTX**](https://github.com/MaximeRumpler/Make_Clean_PPTX).
+[![The same slides before and after the organic style: the square cards become rounded, organic shapes and the text moves inside them](docs/restyle-organic.png)](docs/restyle-organic.png)
 
-Make_Clean_PPTX gives your notes their **form**: one message per slide, a matching design and chart. Make Style PPTX gives the same deck a **look**: the shape of the cards, the corners, the typefaces, the decorative motifs, the background. Your content, your layout and your figures stay exactly as they are.
+</div>
 
-| **Editorial** | **Organic** | **Geometric** | **Tech** | **Soft** |
-|:---:|:---:|:---:|:---:|:---:|
-| serif titles, paper tone | rounded shapes, arcs | circles, clean cards | dark, outlined, crisp | soft shapes, light shadows |
+## What it does
 
-You pick a style by name or by tone (a board meeting, a keynote, a workshop), or show it a deck you like and it builds a new style from it. A small set of signature graphics (gears, a light bulb, a puzzle, a winding road…) is there to give a deck a clear identity, used sparingly.
+Make_Style_PPTX is a *skill*: a folder of instructions and small tools that an AI assistant such as Claude or Codex uses to restyle presentations.
+
+[Make_Clean_PPTX](https://github.com/MaximeRumpler/Make_Clean_PPTX) gives your notes their **form**: one message per slide, a matching design and chart. Make_Style_PPTX gives the same deck a **look**: the cards leave the square-box shape, some slides take a staggered or arced layout, covers and dividers get a quiet background. Your text, your figures and the order of your slides stay exactly as they are, and the skill always writes a copy.
+
+Two styles are ready today:
+
+| **Organic** | **Paper** |
+|:---|:---|
+| Cards become pebbles, callouts clouds, key figures round discs; a soft mist behind covers, statements and dividers. For workshops, training, a warmer tone. | Cards become torn sheets, callouts tickets, key figures sketched by hand; a faint squared-paper grid behind covers, statements and dividers. For notes, field reports, a crafted feel. |
+
+When a text would no longer fit a new shape, that card keeps its standard shape: a style never cuts or shrinks your words.
+
+* * *
+
+## Install
+
+| **Claude Code** | **Codex, Cursor, Copilot, Gemini CLI and others** | **Claude.ai or Claude desktop** |
+|:---|:---|:---|
+| `/plugin marketplace add MaximeRumpler/Make_PPTX`<br>then `/plugin install make-style-pptx@make-pptx` | `npx skills add MaximeRumpler/Make_Style_PPTX`<br>It asks which assistant you use. Needs [Node.js](https://nodejs.org). | A ready-to-upload zip comes with the first release. Until then, use one of the first two columns. |
+
+It needs Python 3.9 or later on your computer; the skill tells you if anything is missing. The before and after images also need LibreOffice. Install [Make_Clean_PPTX](https://github.com/MaximeRumpler/Make_Clean_PPTX#install) too if you want to make the deck in the same conversation.
+
+**Update**: Claude Code, `/plugin marketplace update make-pptx`; other assistants, run the `npx skills add` line again.
+
+## Use
+
+Make a deck with Make_Clean_PPTX, or give it one, then ask in your own words:
+
+```text
+Give this deck the organic style.
+Make my-deck.pptx look less boxy, keep the content.
+Donne un style « papier » à cette présentation, avec quelques slides en escalier.
+```
+
+It may ask one quick question first: the style, and how many slides get a special layout (*calm*, *balanced* or *bold*). Every choice has a default.
+
+* * *
+
+## How it works
+
+| **Shapes** | **Restyle** | **Arrange** | **Ambience** |
+|:---|:---|:---|:---|
+| Drops, clouds, pebbles, tickets, speech bubbles, torn paper and filled icons, as native and editable PowerPoint shapes ([contact sheet](docs/shapes-contact-sheet.png)) | Cards, callouts, key figures and labels take the style's shape; their text moves into the shape's safe box ([organic](docs/restyle-organic.png), [paper](docs/restyle-paper.png)) | A few slides lay their units out as a stagger, a cascade, an arc or a deconstructed grid ([examples](docs/arrange-deck.png)) | One quiet motif behind covers, statements and dividers: mist, rain or a fine grid ([mist](docs/ambience-mist.png), [grid](docs/ambience-grid.png)) |
+
+**How many special slides.** An arranged slide stands out, so the right number depends on your request, your audience and the tone of the content: none for a board update, more for a keynote or a workshop. *Calm*, *balanced* and *bold* are starting points, not limits, and you can name the slides yourself.
+
+**Checked before delivery.** Text that would overflow, overlap another block or leave the margins keeps its plain layout. Background motifs never go on dense slides, and any part that would make a text harder to read than WCAG's 4.5:1 is left out. Same deck and same style always give the same file.
+
+The styles are files: a style pack works with Make_Clean_PPTX's libraries, and Make_Colors_PPTX can add your brand colours on top. Details in [references/restyler.md](skills/make-style-pptx/references/restyler.md).
 
 * * *
 
 ## The Make PPTX set
 
-Part of [**Make PPTX**](https://github.com/MaximeRumpler/Make_PPTX), a set of three skills from your notes to a finished deck.
+Part of [**Make PPTX**](https://github.com/MaximeRumpler/Make_PPTX), three skills that take your notes to a finished deck. Each one works on its own.
 
 | **Make_Clean_PPTX** | **Make_Style_PPTX** | **Make_Colors_PPTX** |
 |:---|:---|:---|
-| **Form.** Notes in, clean deck out. | **Look.** The same deck in another style. | **Brand.** Your colours, fonts and logo. |
-| [Install](https://github.com/MaximeRumpler/Make_Clean_PPTX#install) · [Gallery](https://maximerumpler.github.io/Make_Clean_PPTX/) | In preparation | In preparation |
+| **Form.** Notes in, a clean deck out: one message per slide, tested layouts and charts. | **Look.** The same deck in another style: other shapes, arrangements and backgrounds. | **Brand.** Your colours, fonts and logo, from your brand guidelines, website or example files. |
+| [Install](https://github.com/MaximeRumpler/Make_Clean_PPTX#install) · [Gallery](https://maximerumpler.github.io/Make_Clean_PPTX/) | Preview · [Install](https://github.com/MaximeRumpler/Make_Style_PPTX#install) | Preview · [Install](https://github.com/MaximeRumpler/Make_Colors_PPTX#install) |
 
-Each one works on its own; together they take you from raw notes to a finished, branded deck. All of them work in Claude Code, Claude.ai, Codex and other assistants that read skills.
-
-* * *
-
-## Roadmap
-
-In preparation. Follow [Make_Clean_PPTX](https://github.com/MaximeRumpler/Make_Clean_PPTX) for updates; the first release will be announced there.
-
-First brick in place: the **shapes library** (`skills/make-style-pptx/scripts/_shapes.py`). Drops, clouds, blobs, pebbles, tickets, speech bubbles, torn paper, polygons, hand-drawn cards and filled icons become native, editable PowerPoint shapes drawn with smooth curves, each with the safe box where its text goes. See them all at three sizes in the [contact sheet](docs/shapes-contact-sheet.png) (rebuild it with `python skills/make-style-pptx/scripts/contact_sheet.py`).
-
-Second brick: the **restyler** (`skills/make-style-pptx/scripts/restyle.py`). It turns a Make_Clean library into a style pack: cards, callouts, key figures and labels take a new shape, their text moves into the shape's safe box, and the character limits of the index are recomputed. When a text would no longer fit, the container keeps its standard shape. Two reference styles, *organic* and *paper*, before and after: [organic](docs/restyle-organic.png), [paper](docs/restyle-paper.png). Details in [references/restyler.md](skills/make-style-pptx/references/restyler.md).
-
-Third brick: **arrangements** (`scripts/_arrange.py`). On the layouts whose units Make_Clean marks as rearrangeable (three columns, four figures, a vertical sequence…), a style can lay the units out as a stagger, a cascade, an arc or a deconstructed 12-column grid. Positions depend only on the arrangement and the number of units; when a text would overflow, overlap or leave the margins, the slide keeps its plain grid. An arranged slide stands out, so how many a deck takes is tuned to the request and the tone: a style pack adds arranged layouts as extra opt-in choices next to the plain ones, and a restyled deck gets a few arranged slides by default (calm, balanced, bold or all of them, or the slides you pick). Before and after: [stagger](docs/arrange-stagger.png), [arc](docs/arrange-arc.png), [cascade](docs/arrange-cascade.png), [deconstructed](docs/arrange-deconstructed.png), [a whole deck](docs/arrange-deck.png).
-
-Fourth brick: the **ambience** (`scripts/_ambience.py`). A style can put one quiet motif behind its covers, statements and dividers: a soft mist, thin rain streaks or a fine technical grid. The motifs are native, editable shapes in theme colours, sit behind the content, never go on dense slides, and any part that would make a text harder to read than WCAG's 4.5:1 is left out. *organic* uses the mist, *paper* the grid: [mist](docs/ambience-mist.png), [grid](docs/ambience-grid.png), [rain](docs/ambience-rain.png).
+*Start with Make_Clean_PPTX for the structure. Add a style and your brand colours when you need them.*
 
 * * *
 
-## License
+## Licence
 
-[EUPL-1.2](LICENSE), the open source licence of the European Union: free to use; if you share an improved version, share it under the same licence. **The presentations and styles you make are yours**, with no obligation ([NOTICE](NOTICE)).
+[EUPL-1.2](LICENSE), the open source licence of the European Union: free to use; if you share an improved version, share it under the same licence. **You own the decks and styles you make.** The EUPL does not apply to them and no attribution is required ([NOTICE](NOTICE)).
 
 <div align="center">
 
