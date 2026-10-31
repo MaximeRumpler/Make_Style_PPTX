@@ -27,6 +27,13 @@ Make_Style_PPTX is a *skill*: a folder of instructions and small tools that an A
 
 [Make_Clean_PPTX](https://github.com/MaximeRumpler/Make_Clean_PPTX) gives your notes their **form**: one message per slide, a matching design and chart. Make_Style_PPTX gives the same deck a **look**: the cards leave the square-box shape, some slides take a staggered or arced layout, covers and dividers get a quiet background. Your text, your figures and the order of your slides stay exactly as they are, and the skill always writes a copy.
 
+Each skill does one job, and you only use the ones you need:
+
+<p align="center">
+  <img src="/assets/Make_PPT_flow.svg" alt="Make PowerPoint Flow" width="100%" />
+</p>
+
+
 Two styles are ready today:
 
 | **Organic** | **Paper** |
