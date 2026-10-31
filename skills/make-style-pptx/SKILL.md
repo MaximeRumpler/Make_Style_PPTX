@@ -108,3 +108,5 @@ The pack keeps every id and field name; limits shrink where a text box got small
 - `references/restyler.md`: style file keys, how one container is restyled, arrangements, dosage, ambience, quality gates and known limits.
 - `styles/organic.json`, `styles/paper.json`: the two reference styles, to copy for a custom one.
 - `assets/sample-deck.pptx`: a neutral Make_Clean deck to preview styles.
+
+[[AI]]

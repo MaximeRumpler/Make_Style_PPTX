@@ -134,3 +134,5 @@ Paper grain is not offered: PowerPoint's preset pattern fills render as hatching
 - The contrast gate works on text boxes, not on the glyphs: a motif part that crosses the empty end of a wide text box is judged as if it sat under the text.
 - In a deck, arrangement units come from the shape names: a slide whose fields were renamed by hand is not recognised.
 - In a deck, roles come from the shape names only: fields that are also containers (`role=` flags in the index) are not recognised, and slides with a chart or a table are left alone.
+
+[[Make_Clean_PPTX]]
