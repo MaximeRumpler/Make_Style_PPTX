@@ -5,8 +5,8 @@ boundary, to what that box holds. A kind with a minimum size (the drop) is shown
 its smallest usable size for each font size, never below. Colours are theme colours only (the accent ramp of the
 Make_Clean theme contract, dark to light), fonts are theme fonts.
 
-    python contact_sheet.py                      # docs/shapes-contact-sheet.pptx + .png
-    python contact_sheet.py --out sheet.pptx --png sheet.png
+    python contact_sheet.py                      # shapes-contact-sheet.pptx + .png in the current folder
+    python contact_sheet.py --out docs/shapes-contact-sheet.pptx --png docs/shapes-contact-sheet.png   # refresh the repo images
 
 The PNG needs LibreOffice (soffice) and pdftoppm; without them only the PPTX is written.
 """
@@ -31,7 +31,6 @@ sys.path.insert(0, str(HERE))
 import _shapes as S  # noqa: E402
 
 ICONS = HERE.parent / "assets" / "icons"
-REPO = HERE.parents[2]
 
 # Neutral values of the Make_Clean theme contract (dark-to-light accent ramp).
 THEME = {"dk1": "111111", "lt1": "FFFFFF", "dk2": "404040", "lt2": "F2F2F2",
@@ -247,8 +246,8 @@ def render(pptx: Path, png: Path, dpi: int = 72) -> Path | None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--out", type=Path, default=REPO / "docs" / "shapes-contact-sheet.pptx")
-    ap.add_argument("--png", type=Path, default=REPO / "docs" / "shapes-contact-sheet.png")
+    ap.add_argument("--out", type=Path, default=Path("shapes-contact-sheet.pptx"))
+    ap.add_argument("--png", type=Path, default=Path("shapes-contact-sheet.png"))
     ap.add_argument("--dpi", type=int, default=72)
     args = ap.parse_args(argv)
     build(args.out)

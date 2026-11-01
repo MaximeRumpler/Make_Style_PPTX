@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Before/after contact sheet of a style on a few low-text layouts and visuals.
 
-    restyle_sheet.py <library folder> --style organic [--ids L-24,L-38,...] [--png docs/restyle-organic.png]
-    restyle_sheet.py <library folder> --style organic --arrangement stagger   # docs/arrange-stagger.png
+    restyle_sheet.py <library folder> --style organic [--ids L-24,L-38,...] [--png restyle-organic.png]
+    restyle_sheet.py <library folder> --style organic --arrangement stagger   # arrange-stagger.png
     restyle_sheet.py deck.pptx --style paper --arrangement stagger,arc,deconstructed,cascade
-        # docs/arrange-deck.png: deck built by Make_Clean from tests/fixtures/sample-deck/deck.json
+        # arrange-deck.png: deck built by Make_Clean from tests/fixtures/sample-deck/deck.json
 
 Keeps only the chosen slides of the library (a small copy), restyles that copy, renders
 both with LibreOffice and pdftoppm, and lays them out side by side, one row per
 layout, with what the restyler did under each pair. With an arrangement, the right side
 shows the arranged variant row (``L-38-stagger``) when there is one. With a deck, every
-slide is shown, with the dosage decision under it. Needs LibreOffice for the PNG.
+slide is shown, with the dosage decision under it. The PNG goes to the current folder unless --png says otherwise. Needs LibreOffice for the PNG.
 """
 from __future__ import annotations
 
@@ -28,7 +28,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import restyle as R  # noqa: E402
 from contact_sheet import soffice  # noqa: E402
 
-REPO = Path(__file__).resolve().parents[3]
 DEFAULT_IDS = ["L-05", "L-24", "L-26", "L-28", "L-38", "L-47", "L-50", "V-PRO-04", "V-TIM-05"]
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
@@ -239,7 +238,7 @@ def main(argv=None) -> int:
     stem = f"arrange-{args.arrangement.split(',')[0]}" if args.arrangement else f"restyle-{Path(args.style).stem}"
     if args.library.suffix.lower() == ".pptx":
         stem = "arrange-deck"
-    png = args.png or REPO / "docs" / f"{stem}.png"
+    png = args.png or Path.cwd() / f"{stem}.png"
     try:
         if args.library.suffix.lower() == ".pptx":
             build_deck(args.library, args.style, png, min(args.dpi, 40), args.arrangement, args.intensity)
