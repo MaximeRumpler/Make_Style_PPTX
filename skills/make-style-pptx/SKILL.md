@@ -79,6 +79,9 @@ Same flags as the restyle (minus `--out`, `--force` and `--slides`): the result 
 ### 6. Deliver
 Give the full path of the new `.pptx` (in harnesses with an outputs folder, save it there) and two or three sentences: the style and arrangements used, how many slides changed, anything kept plain and why (in plain words, not report keys). If the user mentioned their brand, add one line: Make_Colors_PPTX puts their colours, fonts and logo on this deck, before or after the style. No recap of the steps.
 
+## A style of your own
+If neither reference style fits, or the user describes a mood or gives a deck they like, build a style file: map the mood to shapes, arrangement and ambience, or draft it from the deck with `python3 scripts/style_from_deck.py example.pptx --out styles/mine.json` (patterns only, nothing copied). Validate with `--check`, render with `restyle_sheet.py --style styles/mine.json`, adjust at most twice. See `references/style-from-description.md`.
+
 ## Style packs for Make_Clean_PPTX
 To build new decks directly in a style, restyle Make_Clean's libraries once into a pack folder and build with it:
 ```bash
@@ -108,6 +111,7 @@ The pack keeps every id and field name; limits shrink where a text box got small
 
 ## Reference files
 
+- `references/style-from-description.md`: a style from a mood or an example deck.
 - `references/quality-gates.md`: what each gate flags and what to do, plus the by-eye review checklist.
 - `references/restyler.md`: style file keys, how one container is restyled, arrangements, dosage, ambience, quality gates and known limits.
 - `styles/organic.json`, `styles/paper.json`: the two reference styles, to copy for a custom one.
