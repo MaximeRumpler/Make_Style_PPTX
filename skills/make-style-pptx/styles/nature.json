@@ -1,0 +1,82 @@
+{
+  "name": "nature",
+  "description": "Nature: pebbles, leaf-like blobs and clouds, a soft wash behind covers.",
+  "seed": 55,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "blob",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.06
+          },
+          "margin": 0.04
+        },
+        {
+          "kind": "pebble",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.07
+          }
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.3
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "cloud",
+          "params": {
+            "lobes": 3
+          }
+        },
+        {
+          "kind": "pebble",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.07
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "pebble",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.05
+          },
+          "align": "center"
+        },
+        {
+          "kind": "circle",
+          "square": true,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "pill"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "stagger"
+  ],
+  "ambience": {
+    "motif": "wash",
+    "density": "low"
+  }
+}

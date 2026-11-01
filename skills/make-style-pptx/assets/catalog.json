@@ -1,0 +1,92 @@
+{
+  "clean": {
+    "family": "Sober",
+    "use_when": "Formal decks, boards, anything that must stay square; also the baseline to compare against",
+    "mode": "either"
+  },
+  "editorial": {
+    "family": "Sober",
+    "use_when": "Reports and talks with a point of view; a few slides laid out like a magazine page",
+    "mode": "light"
+  },
+  "swiss": {
+    "family": "Sober",
+    "use_when": "Technical, data-led or design-minded decks; precise, quiet",
+    "mode": "either"
+  },
+  "organic": {
+    "family": "Organic",
+    "use_when": "Warm, human subjects: wellbeing, culture, workshops",
+    "mode": "light"
+  },
+  "watercolour": {
+    "family": "Organic",
+    "use_when": "Gentle, creative or care-related subjects; arts, education, health",
+    "mode": "light"
+  },
+  "papercut": {
+    "family": "Organic",
+    "use_when": "Craft, stories and teaching; tactile, layered",
+    "mode": "light"
+  },
+  "paper": {
+    "family": "Organic",
+    "use_when": "Workshops, ideas, drafts, education; squared paper and torn sheets",
+    "mode": "light"
+  },
+  "tech-dark": {
+    "family": "Tech",
+    "use_when": "Product, engineering and security talks; modules and a grid",
+    "mode": "dark"
+  },
+  "blueprint": {
+    "family": "Tech",
+    "use_when": "Architecture, engineering, process and systems; precise drawn outlines",
+    "mode": "dark"
+  },
+  "terminal": {
+    "family": "Tech",
+    "use_when": "Developer and infrastructure audiences; steps stepping down like output",
+    "mode": "dark"
+  },
+  "brutalist": {
+    "family": "Expressive",
+    "use_when": "Bold statements and manifestos; blunt blocks, a huge word on request",
+    "mode": "light"
+  },
+  "sketch": {
+    "family": "Expressive",
+    "use_when": "Brainstorms, discovery and early concepts; drawn by hand",
+    "mode": "light"
+  },
+  "collage": {
+    "family": "Expressive",
+    "use_when": "Creative, cultural or youth subjects; scraps pinned at different heights",
+    "mode": "light"
+  },
+  "retro-70s": {
+    "family": "Expressive",
+    "use_when": "Brand, culture and storytelling with a warm, nostalgic tone",
+    "mode": "light"
+  },
+  "bauhaus": {
+    "family": "Expressive",
+    "use_when": "Design and architecture; circles, blocks and a giant figure",
+    "mode": "light"
+  },
+  "rain": {
+    "family": "Mood",
+    "use_when": "Reflective, serious or melancholy subjects; falling items, thin rain",
+    "mode": "either"
+  },
+  "sunny": {
+    "family": "Mood",
+    "use_when": "Optimistic news, launches, summer events; open, round, warm light",
+    "mode": "light"
+  },
+  "nature": {
+    "family": "Mood",
+    "use_when": "Sustainability, outdoors, food and wellbeing; pebbles and a soft wash",
+    "mode": "light"
+  }
+}

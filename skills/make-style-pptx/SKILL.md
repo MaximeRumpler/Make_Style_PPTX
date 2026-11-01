@@ -34,15 +34,31 @@ The input is a `.pptx` built by **Make_Clean_PPTX**: its shape names say which b
 Infer what you can from the request ("softer", "hand-made", "less boxy", the audience); ask only the rest, with defaults. If your harness has a multiple-choice question tool, use it; otherwise:
 ```text
 Two quick choices (reply "1a 2a", or just tell me):
-1. Style: a) organic: pebbles, clouds, round key figures, soft mist (default)  b) paper: torn sheets, tickets, hand-drawn frames, squared-paper grid
+1. Style: a) organic: pebbles, clouds, round key figures, soft mist (default)  b) paper: torn sheets, tickets, hand-drawn frames, squared-paper grid  c) another one from the table below, or describe a mood
 2. Rhythm: a) shapes only (default)  b) also a few slides with items off the grid  c) many slides off the grid
 ```
 If the request is clear, or your harness cannot wait, state your choice in one line and go.
 
 | Style | Looks like | Suits |
 |---|---|---|
+| `clean` | the plain Make_Clean look, square boxes, nothing behind them | formal decks, boards, anything that must stay square; also the baseline to compare against |
+| `editorial` | boxes stay square, a few slides break the grid in an editorial layout | reports and talks with a point of view; a few slides laid out like a magazine page |
+| `swiss` | square boxes, a fine technical grid with small crosses behind covers and statements | technical, data-led or design-minded decks; precise, quiet |
 | `organic` | pebbles, clouds, discs, pills; mist behind covers | warm, human, wellbeing, culture, workshops |
+| `watercolour` | soft pebbles and clouds, a pigment wash bleeding off a corner behind covers | gentle, creative or care-related subjects; arts, education, health |
+| `papercut` | cards with a torn edge on two sides, ticket callouts, a side light behind covers | craft, stories and teaching; tactile, layered |
 | `paper` | torn sheets, tickets, hand-drawn frames; squared-paper grid | workshops, ideas, education, drafts, craft |
+| `tech-dark` | slightly rounded modules in a cascade, a crossed grid behind covers | product, engineering and security talks; modules and a grid |
+| `blueprint` | precise pen-drawn outlines, a fine grid behind covers | architecture, engineering, process and systems; precise drawn outlines |
+| `terminal` | square modules stepping down the slide like lines of output, crossed marks behind covers | developer and infrastructure audiences; steps stepping down like output |
+| `brutalist` | blunt blocks, hard polygons for callouts, off-grid slides and a word set huge when asked for | bold statements and manifestos; blunt blocks, a huge word on request |
+| `sketch` | every box drawn with a pen, items a little off the line | brainstorms, discovery and early concepts; drawn by hand |
+| `collage` | torn scraps and tickets pinned at different heights, a wash of colour behind covers | creative, cultural or youth subjects; scraps pinned at different heights |
+| `retro-70s` | very round shapes, discs for figures, arcs, a warm light on covers | brand, culture and storytelling with a warm, nostalgic tone |
+| `bauhaus` | circles and plain blocks, asymmetric slides, a giant figure when the message is a number | design and architecture; circles, blocks and a giant figure |
+| `rain` | drops for short callouts, clouds, items falling down the slide, thin rain behind covers | reflective, serious or melancholy subjects; falling items, thin rain |
+| `sunny` | round, open shapes and a warm band of light from one side; arcs for stories with a peak | optimistic news, launches, summer events; open, round, warm light |
+| `nature` | pebbles, leaf-like blobs and clouds, a soft wash behind covers | sustainability, outdoors, food and wellbeing; pebbles and a soft wash |
 
 ### 3. Choose arrangements by meaning (only for 2b or 2c)
 Off-grid slides stand out, so they go where the content earns it. Pick by what the repeated items say:
@@ -111,6 +127,7 @@ The pack keeps every id and field name; limits shrink where a text box got small
 
 ## Reference files
 
+- `scripts/gallery.py`: the same deck in every style (table and contact sheet), to show the choice or check a new style.
 - `references/style-from-description.md`: a style from a mood or an example deck.
 - `references/quality-gates.md`: what each gate flags and what to do, plus the by-eye review checklist.
 - `references/restyler.md`: style file keys, how one container is restyled, arrangements, dosage, ambience, quality gates and known limits.

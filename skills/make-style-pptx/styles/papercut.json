@@ -1,0 +1,81 @@
+{
+  "name": "papercut",
+  "description": "Layers of cut paper: cards with a torn edge on two sides, ticket callouts, a side light behind covers.",
+  "seed": 44,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "torn",
+          "params": {
+            "seed": "auto",
+            "edges": "bottom+right",
+            "depth": 0.05
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "ticket",
+          "params": {
+            "notch": 0.1
+          }
+        },
+        {
+          "kind": "torn",
+          "params": {
+            "seed": "auto",
+            "edges": "top+bottom",
+            "depth": 0.05
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "torn",
+          "params": {
+            "seed": "auto",
+            "edges": "bottom",
+            "depth": 0.06
+          },
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "ticket",
+          "params": {
+            "style": "corners"
+          }
+        }
+      ]
+    },
+    "panel": {
+      "shapes": [
+        {
+          "kind": "torn",
+          "params": {
+            "seed": "auto",
+            "edges": "auto",
+            "depth": 0.04
+          },
+          "any_aspect": true
+        }
+      ],
+      "max_chars": 1000
+    }
+  },
+  "arrangement": null,
+  "ambience": {
+    "motif": "leak",
+    "density": "low"
+  }
+}

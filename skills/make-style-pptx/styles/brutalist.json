@@ -1,0 +1,36 @@
+{
+  "name": "brutalist",
+  "description": "Brutalist: blunt blocks, hard polygons for callouts, off-grid slides and a word set huge when asked for.",
+  "seed": 48,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "callout": {
+      "shapes": [
+        {
+          "kind": "polygon",
+          "params": {
+            "sides": 5,
+            "rounding": 0.0
+          }
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "rectangle"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "deconstructed",
+    "stagger"
+  ],
+  "ambience": null,
+  "giant": {
+    "mode": "foreground",
+    "share": 0.55
+  }
+}

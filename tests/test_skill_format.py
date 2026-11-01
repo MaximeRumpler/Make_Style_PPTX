@@ -40,7 +40,7 @@ def test_referenced_files_exist():
 def test_styles_in_skill_md_exist():
     """The style table lists exactly the styles that ship."""
     text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-    listed = set(re.findall(r"^\| `(\w+)` \|", text, re.M)) - {"stagger", "cascade", "arc", "deconstructed"}
+    listed = set(re.findall(r"^\| `([\w-]+)` \|", text, re.M)) - {"stagger", "cascade", "arc", "deconstructed"}
     assert listed == {p.stem for p in (SKILL / "styles").glob("*.json")}
 
 

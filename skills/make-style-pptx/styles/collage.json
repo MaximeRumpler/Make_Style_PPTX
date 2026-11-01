@@ -1,0 +1,82 @@
+{
+  "name": "collage",
+  "description": "Collage: torn scraps and tickets pinned at different heights, a wash of colour behind covers.",
+  "seed": 50,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "torn",
+          "params": {
+            "seed": "auto",
+            "edges": "top+right+bottom+left",
+            "depth": 0.04
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "ticket",
+          "params": {
+            "notch": 0.12
+          }
+        },
+        {
+          "kind": "bubble",
+          "params": {
+            "side": "bottom",
+            "pos": 0.3
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "ticket",
+          "params": {
+            "style": "corners"
+          },
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "ticket",
+          "params": {
+            "style": "corners"
+          }
+        }
+      ]
+    },
+    "panel": {
+      "shapes": [
+        {
+          "kind": "torn",
+          "params": {
+            "seed": "auto",
+            "edges": "auto",
+            "depth": 0.05
+          },
+          "any_aspect": true
+        }
+      ],
+      "max_chars": 1000
+    }
+  },
+  "arrangement": [
+    "stagger",
+    "cascade",
+    "arc"
+  ],
+  "ambience": {
+    "motif": "wash",
+    "density": "low"
+  }
+}

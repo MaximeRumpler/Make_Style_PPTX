@@ -1,0 +1,43 @@
+{
+  "name": "bauhaus",
+  "description": "Bauhaus: circles and plain blocks, asymmetric slides, a giant figure when the message is a number.",
+  "seed": 52,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "callout": {
+      "shapes": [
+        {
+          "kind": "circle"
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "circle",
+          "square": true,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "polygon",
+          "params": {
+            "sides": 4,
+            "rounding": 0.0
+          }
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "deconstructed"
+  ],
+  "ambience": null,
+  "giant": {
+    "mode": "background"
+  }
+}

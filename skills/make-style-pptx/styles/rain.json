@@ -1,0 +1,71 @@
+{
+  "name": "rain",
+  "description": "Rain: drops for short callouts, clouds, items falling down the slide, thin rain behind covers.",
+  "seed": 53,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "callout": {
+      "shapes": [
+        {
+          "kind": "drop",
+          "params": {
+            "tilt": 0.0
+          }
+        },
+        {
+          "kind": "cloud",
+          "params": {
+            "lobes": 3
+          }
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.35
+          }
+        }
+      ]
+    },
+    "card": {
+      "shapes": [
+        {
+          "kind": "pebble",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.05
+          }
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.3
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "circle",
+          "square": true,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "pill"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "cascade"
+  ],
+  "ambience": {
+    "motif": "rain",
+    "density": "low"
+  }
+}
