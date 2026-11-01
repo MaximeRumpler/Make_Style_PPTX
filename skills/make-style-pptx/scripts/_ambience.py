@@ -9,7 +9,10 @@ Motifs (all native, editable shapes in theme colours, nothing raster):
 - ``mist``: a few soft, overlapping blobs gathered in the emptiest corner;
 - ``rain``: thin slanted streaks, kept clear of the text;
 - ``grid``: a technical grid of fine lines (or ``"marks": "cross"``) over the emptier side,
-  fading out towards the content.
+  fading out towards the content;
+- ``wash``: watercolour, a few large uneven stains that bleed off a corner, each with a
+  denser pool of pigment inside it (``colour`` may be an accent for a tinted wash);
+- ``leak``: a light leak, a translucent band that fades from the slide edge into the slide.
 
 The motif is one group, ``ambience#1 > <motif>``, placed first in the slide's shape
 tree (behind everything), marked decorative for screen readers. Colours are theme
@@ -52,16 +55,18 @@ DECORATIVE = "{C183D7F6-B498-43B3-948B-1728B52AA6E4}"
 ADEC = "http://schemas.microsoft.com/office/drawing/2017/decorative"
 EMU = S.EMU_PER_INCH
 
-MOTIFS = ("mist", "rain", "grid")
+MOTIFS = ("mist", "rain", "grid", "wash", "leak")
 SCHEME = ("tx1", "tx2", "bg1", "bg2", "dk1", "dk2", "lt1", "lt2",
           "accent1", "accent2", "accent3", "accent4", "accent5", "accent6")
 # density tokens: how much of each motif, and how opaque. "low" keeps text contrast
 # on the neutral and on most brand themes; the gate catches the rest.
 DENSITY = {
     "low": {"mist": {"blobs": 3, "alpha": 0.09}, "rain": {"streaks": 45, "alpha": 0.24, "pt": 0.75},
-            "grid": {"pitch": 0.40, "alpha": 0.22, "pt": 0.5}},
+            "grid": {"pitch": 0.40, "alpha": 0.22, "pt": 0.5}, "wash": {"blobs": 3, "alpha": 0.10},
+            "leak": {"bands": 2, "alpha": 0.07}},
     "medium": {"mist": {"blobs": 4, "alpha": 0.14}, "rain": {"streaks": 80, "alpha": 0.32, "pt": 0.75},
-               "grid": {"pitch": 0.30, "alpha": 0.30, "pt": 0.5}},
+               "grid": {"pitch": 0.30, "alpha": 0.30, "pt": 0.5}, "wash": {"blobs": 4, "alpha": 0.14},
+               "leak": {"bands": 3, "alpha": 0.12}},
 }
 TEXT_MIN, LARGE_MIN = 4.5, 3.0
 DEFAULTS = {
@@ -72,6 +77,7 @@ DEFAULTS = {
 NEVER_CATEGORIES = ("Table", "Frame")
 GROUP_NAME = "ambience#1"
 SOFT = 0.2  # soft edge of a mist blob, share of its shorter side
+SOFT_WASH = 0.3  # a watercolour stain is softer still
 
 
 class AmbienceError(ValueError):
@@ -396,6 +402,47 @@ def mist_parts(W, H, busy, dens, rnd) -> List[dict]:
     return parts
 
 
+def wash_parts(W, H, busy, dens, rnd) -> List[dict]:
+    """Watercolour: large uneven stains bleeding off the emptiest corner, each with a denser
+    pool of pigment inside it. Same rules as the mist (behind the content, gated)."""
+    r0 = 0.5 * H
+    name, (cx, cy) = _pick_corner(W, H, busy, r0, rnd)
+    sx = -1 if cx > 0 else 1
+    sy = -1 if cy > 0 else 1
+    parts = []
+    for i in range(dens["blobs"]):
+        r = r0 * (1.0 - 0.18 * i) * (0.85 + 0.3 * rnd.random())
+        ax = 1.1 + 0.5 * rnd.random()
+        px = cx + sx * (0.10 + 0.45 * i + 0.2 * rnd.random()) * r0
+        py = cy + sy * (0.05 + 0.20 * i + 0.2 * rnd.random()) * r0
+        w, h = 2 * r * ax, 2 * r
+        for pool in (False, True):
+            k = 0.55 if pool else 1.0  # the pool: smaller, a little off-centre, denser
+            dx = (rnd.random() - 0.5) * 0.25 * w if pool else 0
+            dy = (rnd.random() - 0.5) * 0.25 * h if pool else 0
+            bw, bh = w * k, h * k
+            soft = int(SOFT_WASH * min(bw, bh))
+            draw = (int(px + dx - bw / 2), int(py + dy - bh / 2), int(bw), int(bh))
+            parts.append({"kind": "blob", "draw": draw, "soft": soft, "wobble": 0.2,
+                          "box": (draw[0] + soft, draw[1] + soft, max(1, draw[2] - 2 * soft), max(1, draw[3] - 2 * soft)),
+                          "seed": rnd.randrange(1, 10 ** 6), "alpha": round(dens["alpha"] * (1.5 if pool else 1.0), 4)})
+    return parts
+
+
+def leak_parts(W, H, busy, dens, rnd) -> List[dict]:
+    """Light leak: translucent bands along the emptier side edge, strongest at the edge and
+    fading into the slide; they bleed off the top and bottom."""
+    right = _emptier_side(W, H, busy)
+    parts = []
+    for i in range(dens["bands"]):
+        w = int(W * (0.26 - 0.07 * i) * (0.9 + 0.2 * rnd.random()))
+        x = W - w if right else 0
+        draw = (x, int(-0.05 * H), w, int(1.1 * H))
+        parts.append({"kind": "leak", "draw": draw, "box": draw, "right": right,
+                      "alpha": round(dens["alpha"] * (1 + 0.4 * i), 4)})
+    return parts
+
+
 def _seg_box(x0, y0, x1, y1, pad=0):
     # at least 1 EMU thick, so a vertical or horizontal line still overlaps what it crosses
     return (int(min(x0, x1) - pad), int(min(y0, y1) - pad), max(1, int(abs(x1 - x0) + 2 * pad)),
@@ -477,7 +524,7 @@ def grid_parts(W, H, busy, dens, rnd, marks="lines") -> List[dict]:
     return parts
 
 
-BUILDERS = {"mist": mist_parts, "rain": rain_parts, "grid": grid_parts}
+BUILDERS = {"mist": mist_parts, "rain": rain_parts, "grid": grid_parts, "wash": wash_parts, "leak": leak_parts}
 
 
 # ------------------------------------------------------------------ contrast gate
@@ -551,15 +598,25 @@ def build_group(parts: List[dict], motif: str, slot: str, dens: dict, first_id: 
     sid = first_id
     children = []
     boxes = []
-    if motif == "mist":
+    if motif in ("mist", "wash"):
         for n, p in enumerate(parts, 1):
             x, y, w, h = p["draw"]
-            geom = S.outline("blob", w, h, strict=False, seed=p["seed"], wobble=0.12)
+            geom = S.outline("blob", w, h, strict=False, seed=p["seed"], wobble=p.get("wobble", 0.12))
             sid += 1
             children.append(_sp(sid, f"{motif} {n}", p["draw"], _geom_xml(geom, w, h),
                                 f"<a:solidFill>{_colour(slot, p['alpha'])}</a:solidFill>",
-                                f'<a:ln><a:noFill/></a:ln><a:effectLst><a:softEdge rad="{int(SOFT * min(w, h))}"/>'
+                                f'<a:ln><a:noFill/></a:ln><a:effectLst><a:softEdge rad="{p.get("soft", int(SOFT * min(w, h)))}"/>'
                                 '</a:effectLst>'))
+            boxes.append(p["draw"])
+    elif motif == "leak":
+        for n, p in enumerate(parts, 1):
+            w, h = p["draw"][2], p["draw"][3]
+            ang = 10800000 if p["right"] else 0  # the first stop sits on the slide edge
+            fill = (f'<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0">{_colour(slot, p["alpha"])}</a:gs>'
+                    f'<a:gs pos="100000">{_colour(slot, 0)}</a:gs></a:gsLst><a:lin ang="{ang}" scaled="0"/></a:gradFill>')
+            sid += 1
+            rect = [S.Path([S.Pen().move(0, 0).line(w, 0).line(w, h).line(0, h).close().subs[0]])]
+            children.append(_sp(sid, f"{motif} {n}", p["draw"], _geom_xml(rect, w, h), fill, '<a:ln><a:noFill/></a:ln>'))
             boxes.append(p["draw"])
     else:
         # one freeform per opacity: every streak or grid line of the slide in one shape

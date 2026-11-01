@@ -4,6 +4,7 @@
     restyle.py <library folder | deck.pptx> --style organic [--out DIR|FILE] [--report FILE] [--force]
                [--arrangement stagger,arc] [--intensity calm|balanced|bold|all] [--slides 2,6,9]
                [--index layouts.csv,visuals.csv]
+               [--giant 3=2027,7=TRUST] [--giant-mode background|foreground]
 
 Input
     a library folder (layouts.pptx/.csv and visuals.pptx/.csv, a Make_Clean pack or
@@ -62,6 +63,7 @@ from pptx import Presentation
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _ambience as AMB  # noqa: E402
 import _arrange as AR  # noqa: E402
+import _giant as GI  # noqa: E402
 import _shapes as S  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -130,6 +132,10 @@ def load_style(which: str) -> dict:
     try:
         style["ambience"] = AMB.normalise(style.get("ambience"))
     except AMB.AmbienceError as exc:
+        raise RestyleError(f"style '{style['name']}': {exc}") from None
+    try:
+        style["giant"] = GI.normalise(style.get("giant"))
+    except GI.GiantError as exc:
         raise RestyleError(f"style '{style['name']}': {exc}") from None
     return style
 
@@ -793,6 +799,10 @@ def restyle_deck(src: Path, style: dict, out: Path, rows: Optional[Dict[str, dic
     for key, slide, reason in slides:
         items.extend(restyle_slide(ctx, slide, key, {}, reason))
     amb = AMB.apply_deck(prs, style)
+    expressive = {n for n, sl in enumerate(prs.slides, 1)
+                  if AR.is_expressive(AR.slide_layout_id(sl), (rows or {}).get(AR.slide_layout_id(sl)))
+                  or any(it.get("status") == "arranged" and it["id"] == f"slide {n}" for it in items)}
+    giant = GI.apply_deck(prs, style, expressive)  # after the ambience: the motif ignores the giant word
     save_deterministic(prs, out)
     hooks = _hooks(style)
     if arranged:
@@ -801,6 +811,8 @@ def restyle_deck(src: Path, style: dict, out: Path, rows: Optional[Dict[str, dic
               "hooks": hooks, "items": items}
     if amb:
         report["ambience"] = amb
+    if giant:
+        report["giant"] = giant
     return report
 
 
@@ -832,9 +844,17 @@ def run(src: Path, style: dict, out: Optional[Path] = None, force: bool = False,
 
 
 def override(style: dict, arrangement: Optional[str] = None, intensity: Optional[str] = None,
-             slides: Optional[str] = None) -> dict:
-    """The style with the arrangement, intensity or chosen slides of this run (validated)."""
+             slides: Optional[str] = None, giant: Optional[str] = None, giant_mode: Optional[str] = None) -> dict:
+    """The style with the arrangement, intensity, chosen slides or giant words of this run (validated)."""
     style = dict(style)
+    if giant or giant_mode:
+        try:
+            conf = {**(style.get("giant") or {}), **({"mode": giant_mode} if giant_mode else {})}
+            if giant:
+                conf["words"] = GI.parse_words(giant)
+            style["giant"] = GI.normalise(conf)
+        except GI.GiantError as exc:
+            raise RestyleError(str(exc)) from None
     if arrangement:
         style["arrangement"] = [a.strip() for a in arrangement.split(",") if a.strip()]
     if intensity:
@@ -862,14 +882,18 @@ def main(argv=None) -> int:
     ap.add_argument("--force", action="store_true", help="replace an existing output")
     ap.add_argument("--arrangement", help="arrangements, comma separated (stagger, cascade, arc, deconstructed)")
     ap.add_argument("--intensity", help="deck: how many slides get arranged (calm, balanced, bold, all)")
+    ap.add_argument("--giant", help="deck: one giant word or figure per slide, slide=word pairs "
+                    "(3=2027,7=TRUST); the word must be in the slide's own text, 8 characters at most")
+    ap.add_argument("--giant-mode", choices=("background", "foreground"), help="deck: a faint word behind the "
+                    "content, or the slide's own word enlarged to be the message (default background)")
     ap.add_argument("--index", help="deck: Make_Clean index file(s) (layouts.csv, visuals.csv, comma separated) "
                     "to read each slide's declared arrangement and expressive tags by layout id")
     ap.add_argument("--slides", help="deck: arrange these slides only (numbers, comma separated)")
     args = ap.parse_args(argv)
     try:
         style = load_style(args.style)
-        if args.arrangement or args.intensity or args.slides:
-            style = override(style, args.arrangement, args.intensity, args.slides)
+        if args.arrangement or args.intensity or args.slides or args.giant or args.giant_mode:
+            style = override(style, args.arrangement, args.intensity, args.slides, args.giant, args.giant_mode)
         out, report = run(Path(args.input), style, Path(args.out) if args.out else None, args.force,
                           [Path(x) for x in args.index.split(",") if x] if args.index else None)
     except (RestyleError, OSError, ValueError) as exc:

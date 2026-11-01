@@ -109,6 +109,8 @@ Not yet: `grid:N` layouts, visuals (V-…), units held by a panel, the overlap, 
 |---|---|
 | `mist` | three soft, overlapping blobs (soft-edge effect) gathered off the emptiest corner |
 | `rain` | thin streaks at one slant on the emptier side, thinning out towards the content, never touching text, rules or pictures |
+| `wash` | watercolour: a few large uneven stains bleeding off the emptiest corner, each with a denser pool of pigment inside (very soft edge) |
+| `leak` | light leak: translucent bands fading from the emptier side edge into the slide (gradient to transparent) |
 | `grid` | a fine grid on the emptier side, aligned to the slide edge, fading out towards the content; `"marks": "cross"` draws small crosses at the intersections instead of lines |
 
 ```json
@@ -137,3 +139,27 @@ Paper grain is not offered: PowerPoint's preset pattern fills render as hatching
 - In a deck, roles come from the shape names only: fields that are also containers (`role=` flags in the index) are not recognised, and slides with a chart or a table are left alone.
 
 [[Make_Clean_PPTX]]
+
+## Giant typography
+
+`scripts/_giant.py` sets **one** huge word or figure on a slide of a deck. The agent names the words from what each slide says; nothing is invented.
+
+```bash
+python scripts/restyle.py deck.pptx --style paper --giant 3=2027,7=TRUST [--giant-mode background|foreground]
+```
+
+```json
+"giant": {"mode": "background", "colour": "tx2", "share": 0.7, "min_pt": 72, "per10": 3, "words": {"3": "2027"}}
+```
+
+| Mode | What it does |
+|---|---|
+| `background` (default) | the word in the theme heading font, as a faint tint of a theme colour behind the content, bleeding off the left and bottom edges (`bleed`). One text box `giant#1 > background`, first in the shape tree, marked decorative (no alt text, skipped by screen readers). |
+| `foreground` | the slide's own shape whose text is exactly the word is enlarged to `share` of the slide width, so the word is the message. It keeps its place and its reading order. |
+
+- A word has 8 characters at most and must appear in the slide's own text. Otherwise the slide is left alone and the report says why (a longer word keeps its normal title).
+- **Contrast gate**: text over the word is checked with the word behind it (same gate as the ambience, 4.5:1). The word is lightened through `alphas` (10 %, 7 %, 5 %), then dropped.
+- Foreground: when the larger box would touch other text or run off the slide, the slide is left alone. No shrinking below `min_pt` (72 pt).
+- Slides with a chart, a table or a picture, and slides that already carry an expressive device, are left alone: one device per slide. At most `per10` slides in 10 (3 by default, a soft default like the arrangement dosage).
+- Colours are theme slots (`colour` on light slides, `on_dark` on dark ones), the font is the theme heading font, so Make_Colors and a typography pair apply afterwards. Sizes use conservative width factors for a bold display face; render to check.
+- Decks only; libraries are not touched. Applied after the ambience, so a motif never avoids the word. The report gets a `giant` entry with each word's status.

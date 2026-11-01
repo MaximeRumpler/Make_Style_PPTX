@@ -16,7 +16,8 @@ A style has three layers, each optional and each done by the scripts:
 
 - **shapes**: cards, callouts, key figures and labels take another silhouette; text boxes are recomputed so every word still fits;
 - **arrangement**: on a few slides, the repeated items (three columns, four figures, five steps) leave the plain grid;
-- **ambience**: one quiet motif behind covers, statements and dividers.
+- **ambience**: one quiet motif (mist, rain, grid, watercolour wash, light leak) behind covers, statements and dividers.
+- **giant typography** (deck, on request): one huge word or figure taken from a slide, as a faint tint behind it or as the slide's own enlarged word (`--giant 3=2027`).
 
 Nothing else changes: fonts, colours (theme slots), text and slide order stay as they are, so a brand theme can go on before or after. When a shape or an arrangement would cut text, overlap or break the reading order, that container or slide keeps its plain form and the report says why.
 
