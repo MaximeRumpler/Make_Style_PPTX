@@ -66,6 +66,8 @@ It writes `<deck>-<style>.pptx` and `<deck>-<style>.report.json` (or `--out <fil
 
 Read the report's `summary` (restyled, arranged, kept) and the items marked `fallback`: each gives the reason. A few fallbacks are normal (long text keeps its plain box); many on one slide mean the content is too dense for that style, which is worth one sentence to the user.
 
+Read `quality` in the report too: warnings from the gates (overlap, contrast over the motif, reading order, effects, dosage) are to-dos, explained in `references/quality-gates.md`; fix the slide or say what stays. `python3 scripts/quality_gates.py deck.pptx` runs them on any deck.
+
 Ambience and the shapes come with the style. To change them (another motif, no motif, another candidate shape, the heading font), copy `styles/<style>.json`, edit it and pass its path to `--style`; every key is in `references/restyler.md`. Read that file only when you need to go beyond the two styles as they are.
 
 ### 5. Check
@@ -110,6 +112,7 @@ The pack keeps every id and field name; limits shrink where a text box got small
 ## Reference files
 
 - `references/style-from-description.md`: a style from a mood or an example deck.
+- `references/quality-gates.md`: what each gate flags and what to do, plus the by-eye review checklist.
 - `references/restyler.md`: style file keys, how one container is restyled, arrangements, dosage, ambience, quality gates and known limits.
 - `styles/organic.json`, `styles/paper.json`: the two reference styles, to copy for a custom one.
 - `assets/sample-deck.pptx`: a neutral Make_Clean deck to preview styles.
