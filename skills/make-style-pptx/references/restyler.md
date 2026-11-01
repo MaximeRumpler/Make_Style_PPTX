@@ -5,10 +5,10 @@
 ```
 python scripts/restyle.py <library folder> --style organic [--out <pack folder>]
 python scripts/restyle.py deck.pptx --style paper [--out deck-paper.pptx]
-python scripts/restyle_sheet.py <library folder> --style organic     # before/after PNG in docs/
-python scripts/restyle_sheet.py <library folder> --style paper --arrangement cascade   # docs/arrange-cascade.png
+python scripts/restyle_sheet.py <library folder> --style organic     # before/after PNG in the current folder
+python scripts/restyle_sheet.py <library folder> --style paper --arrangement cascade   # arrange-cascade.png
 python scripts/restyle.py deck.pptx --style paper --arrangement stagger,arc [--intensity bold | --slides 3,4,8]
-python scripts/restyle_sheet.py deck.pptx --style paper --arrangement stagger,arc      # docs/arrange-deck.png
+python scripts/restyle_sheet.py deck.pptx --style paper --arrangement stagger,arc      # arrange-deck.png
 ```
 
 The input is never written. A library gives a **style pack** folder that Make_Clean builds with as is (`build_deck.py --local-dir <pack>`):
