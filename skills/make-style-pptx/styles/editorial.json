@@ -1,0 +1,13 @@
+{
+  "name": "editorial",
+  "description": "Magazine: boxes stay square, a few slides break the grid in an editorial layout.",
+  "seed": 41,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {},
+  "arrangement": [
+    "deconstructed",
+    "stagger"
+  ],
+  "ambience": null
+}

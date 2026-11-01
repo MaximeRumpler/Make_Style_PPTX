@@ -1,0 +1,24 @@
+{
+  "name": "terminal",
+  "description": "Terminal: square modules stepping down the slide like lines of output, crossed marks behind covers.",
+  "seed": 47,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "label": {
+      "shapes": [
+        {
+          "kind": "rectangle"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "cascade"
+  ],
+  "ambience": {
+    "motif": "grid",
+    "marks": "cross",
+    "density": "low"
+  }
+}

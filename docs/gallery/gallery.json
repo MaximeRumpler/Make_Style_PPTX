@@ -1,0 +1,288 @@
+{
+  "clean": {
+    "summary": {
+      "kept": 15
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "editorial": {
+    "summary": {
+      "arranged": 3,
+      "kept": 18
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "swiss": {
+    "summary": {
+      "kept": 15
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "organic": {
+    "summary": {
+      "kept": 10,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "paper": {
+    "summary": {
+      "kept": 10,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "papercut": {
+    "summary": {
+      "kept": 10,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "watercolour": {
+    "summary": {
+      "kept": 10,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "blueprint": {
+    "summary": {
+      "kept": 10,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [],
+    "shown": [
+      1,
+      3,
+      5
+    ]
+  },
+  "tech-dark": {
+    "summary": {
+      "arranged": 3,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "terminal": {
+    "summary": {
+      "arranged": 3,
+      "kept": 18
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "bauhaus": {
+    "summary": {
+      "arranged": 2,
+      "fallback": 2,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "brutalist": {
+    "summary": {
+      "arranged": 3,
+      "kept": 17,
+      "restyled": 1
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "collage": {
+    "summary": {
+      "arranged": 3,
+      "fallback": 4,
+      "kept": 13,
+      "restyled": 1
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "retro-70s": {
+    "summary": {
+      "arranged": 3,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "sketch": {
+    "summary": {
+      "arranged": 3,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "nature": {
+    "summary": {
+      "arranged": 3,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "rain": {
+    "summary": {
+      "arranged": 3,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  },
+  "sunny": {
+    "summary": {
+      "arranged": 3,
+      "kept": 13,
+      "restyled": 5
+    },
+    "quality": [],
+    "arranged": [
+      2,
+      6,
+      9
+    ],
+    "shown": [
+      1,
+      2,
+      5
+    ]
+  }
+}

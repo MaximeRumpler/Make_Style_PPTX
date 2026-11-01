@@ -1,0 +1,58 @@
+{
+  "name": "sunny",
+  "description": "Sunny: round, open shapes and a warm band of light from one side; arcs for stories with a peak.",
+  "seed": 54,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.3
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "pill"
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.4
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "circle",
+          "square": true,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "circle"
+        },
+        {
+          "kind": "pill"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "arc"
+  ],
+  "ambience": {
+    "motif": "leak",
+    "density": "low"
+  }
+}

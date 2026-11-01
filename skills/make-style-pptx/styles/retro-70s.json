@@ -1,0 +1,58 @@
+{
+  "name": "retro-70s",
+  "description": "Retro 70s: very round shapes, discs for figures, arcs, a warm light on covers. Pair with an earthy palette.",
+  "seed": 51,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.5
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "pill"
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.5
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "circle",
+          "square": true,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "circle"
+        },
+        {
+          "kind": "pill"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "arc"
+  ],
+  "ambience": {
+    "motif": "leak",
+    "density": "low"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "clean",
+  "description": "No change: the plain Make_Clean look, square boxes, nothing behind them. The baseline of the gallery and the choice for decks that must stay formal.",
+  "seed": 40,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {},
+  "arrangement": null,
+  "ambience": null
+}

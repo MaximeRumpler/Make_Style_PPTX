@@ -34,11 +34,15 @@ Each skill does one job, and you only use the ones you need:
 </p>
 
 
-Two styles are ready today:
+Eighteen styles are ready, in five families (sober, organic, tech, expressive, mood). Two of them in detail:
 
 | **Organic** | **Paper** |
 |:---|:---|
 | Cards become pebbles, callouts clouds, key figures round discs; a soft mist behind covers, statements and dividers. For workshops, training, a warmer tone. | Cards become torn sheets, callouts tickets, key figures sketched by hand; a faint squared-paper grid behind covers, statements and dividers. For notes, field reports, a crafted feel. |
+
+[![The same three slides in each of the eighteen styles](docs/gallery/gallery.png)](docs/gallery/gallery.md)
+
+The whole set on the same deck, with when to use each: [gallery](docs/gallery/gallery.md). Nothing fits? Describe a mood or give an example deck and the skill drafts a style of your own.
 
 When a text would no longer fit a new shape, that card keeps its standard shape: a style never cuts or shrinks your words.
 

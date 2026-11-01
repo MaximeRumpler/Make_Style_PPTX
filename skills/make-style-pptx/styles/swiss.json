@@ -1,0 +1,14 @@
+{
+  "name": "swiss",
+  "description": "Swiss grid: square boxes, a fine technical grid with small crosses behind covers and statements.",
+  "seed": 42,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {},
+  "arrangement": null,
+  "ambience": {
+    "motif": "grid",
+    "marks": "cross",
+    "density": "low"
+  }
+}

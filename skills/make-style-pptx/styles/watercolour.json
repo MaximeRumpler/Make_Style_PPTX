@@ -1,0 +1,80 @@
+{
+  "name": "watercolour",
+  "description": "Watercolour: soft pebbles and clouds, a pigment wash bleeding off a corner behind covers.",
+  "seed": 43,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "pebble",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.08
+          },
+          "margin": 0.04
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.3
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "cloud",
+          "params": {
+            "lobes": 3
+          }
+        },
+        {
+          "kind": "pebble",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.07
+          }
+        },
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.35
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "blob",
+          "params": {
+            "seed": "auto",
+            "wobble": 0.07
+          },
+          "square": true,
+          "align": "center"
+        },
+        {
+          "kind": "circle",
+          "square": true,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "pill"
+        }
+      ]
+    }
+  },
+  "arrangement": null,
+  "ambience": {
+    "motif": "wash",
+    "density": "low"
+  }
+}

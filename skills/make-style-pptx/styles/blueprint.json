@@ -1,0 +1,70 @@
+{
+  "name": "blueprint",
+  "description": "Blueprint: precise pen-drawn outlines, a fine grid behind covers. Pair with a deep blue theme.",
+  "seed": 46,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "handdrawn",
+          "params": {
+            "seed": "auto",
+            "jitter": 0.006,
+            "strokes": 1
+          },
+          "stroke": "tx2",
+          "stroke_pt": 1
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "handdrawn",
+          "params": {
+            "seed": "auto",
+            "jitter": 0.006,
+            "strokes": 1
+          },
+          "stroke": "tx2",
+          "stroke_pt": 1
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "handdrawn",
+          "params": {
+            "seed": "auto",
+            "jitter": 0.006,
+            "strokes": 1
+          },
+          "stroke": "tx2",
+          "stroke_pt": 1,
+          "align": "center"
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "handdrawn",
+          "params": {
+            "seed": "auto",
+            "jitter": 0.006,
+            "strokes": 1,
+            "form": "auto"
+          }
+        }
+      ]
+    }
+  },
+  "arrangement": null,
+  "ambience": {
+    "motif": "grid",
+    "density": "medium"
+  }
+}

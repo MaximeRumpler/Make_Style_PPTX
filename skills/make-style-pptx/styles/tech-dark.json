@@ -1,0 +1,54 @@
+{
+  "name": "tech-dark",
+  "description": "Tech: slightly rounded modules in a cascade, a crossed grid behind covers. Pair with a dark theme.",
+  "seed": 45,
+  "keep": 0.6,
+  "max_chars": 320,
+  "roles": {
+    "card": {
+      "shapes": [
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.08
+          }
+        }
+      ]
+    },
+    "callout": {
+      "shapes": [
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.1
+          }
+        }
+      ]
+    },
+    "keyfigure": {
+      "shapes": [
+        {
+          "kind": "rounded",
+          "params": {
+            "radius": 0.1
+          }
+        }
+      ]
+    },
+    "label": {
+      "shapes": [
+        {
+          "kind": "pill"
+        }
+      ]
+    }
+  },
+  "arrangement": [
+    "cascade"
+  ],
+  "ambience": {
+    "motif": "grid",
+    "marks": "cross",
+    "density": "low"
+  }
+}
