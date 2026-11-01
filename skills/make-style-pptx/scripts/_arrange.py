@@ -433,6 +433,25 @@ def is_variant(row: dict) -> bool:
     return any(row.get("id", "").endswith(f"-{n}") for n in NAMES) and "expressive" in row.get("tags", "").split()
 
 
+LAYOUT_ID = re.compile(r"^[A-Z]{1,2}-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$")
+EXPRESSIVE_IDS = ("V-ORB-", "V-SIG-")  # without an index: orbital and signature visuals
+
+
+def slide_layout_id(slide) -> Optional[str]:
+    """The library id Make_Clean writes in a built slide's hidden name (``L-38``), or None."""
+    name = slide._element.cSld.get("name") or ""
+    return name if LAYOUT_ID.match(name) else None
+
+
+def is_expressive(layout_id: Optional[str], row: Optional[dict]) -> bool:
+    """A slide that already carries an expressive device (orbital, signature, an arranged variant):
+    by its index row's tags, or by its id when no index is given."""
+    if row is not None:
+        tags = row.get("tags", "").split()
+        return "expressive" in tags or "signature" in tags
+    return bool(layout_id) and (layout_id.startswith(EXPRESSIVE_IDS) or any(layout_id.endswith(f"-{n}") for n in NAMES))
+
+
 def duplicate_slide(prs, slide):
     """Append a copy of ``slide`` (shapes, background, pictures and links) to ``prs``."""
     new = prs.slides.add_slide(slide.slide_layout)
@@ -534,8 +553,8 @@ def add_variants(R, ctx, prs, rows: List[dict], lib: str) -> Tuple[List[dict], L
 
 # ------------------------------------------------------------------ decks: units from the shape names
 def deck_units(R, slide):
-    """(kind, count, fields) of a built deck's slide, or a reason. A deck carries no layout
-    id, so the units come from the shape names Make_Clean keeps: fields numbered 1..N (two
+    """(kind, count, fields) of a built deck's slide, or a reason. The units come from
+    the shape names Make_Clean keeps: fields numbered 1..N (two
     or more), sharing at least one text field name, side by side (row) or stacked (column)."""
     fields: Dict[str, dict] = {}
     for sh in slide.shapes:
@@ -572,11 +591,13 @@ def deck_units(R, slide):
     return kind, count, fields
 
 
-def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
+def arrange_deck(R, ctx, slides, rows: Optional[Dict[str, dict]] = None) -> Tuple[List[dict], dict]:
     """Hook for restyle.py, decks: arrange a few slides, before their shapes are swapped.
     ``slides`` is [(key, slide, reason or None)] in deck order. The style's arrangements
     take turns (the next one is tried when one falls back); the dosage keeps at most
-    ``budget`` arranged slides, ``gap`` slides apart. Returns (report items, summary)."""
+    ``budget`` expressive slides, ``gap`` slides apart; slides that are already expressive (by the
+    layout id in their hidden name, with the index ``rows`` by id when given) count in both,
+    and a layout whose row declares no ``arrange`` tag is left alone. Returns (report items, summary)."""
     names = style_arrangements(ctx.style)
     if not names:
         return [], {}
@@ -588,25 +609,41 @@ def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
         intensity, budget, gap = "chosen slides", len(chosen), 1
     items: List[dict] = []
     last, turn = None, 0
+    rows = rows or {}
+    ids = [slide_layout_id(sl) for _, sl, _ in slides]
+    fixed = [i for i, lid in enumerate(ids) if is_expressive(lid, rows.get(lid))]
     for i, (key, slide, reason) in enumerate(slides):
-        if reason:
+        if reason or i in fixed:
             continue
         found = deck_units(R, slide)
         if isinstance(found, str):
             continue
         kind, count, fields = found
         item = {"id": key, "shape": "arrangement", "role": "arrangement", "arrange": f"{kind}:{count}"}
+        if ids[i]:
+            item["layout"] = ids[i]
         items.append(item)
+        row = rows.get(ids[i])
+        if row is not None:
+            declared = parse_arrange(row.get("arrange", ""))
+            if declared is None:
+                item.update(status="kept", reason=f"layout {ids[i]} declares no arrangement")
+                continue
+            if declared[:2] != (kind, count):
+                item.update(status="kept", reason=f"layout {ids[i]} declares {declared[0]}:{declared[1]}, "
+                            f"the slide has {kind}:{count}")
+                continue
         if chosen is not None and i + 1 not in chosen:
             item.update(status="kept", reason="dosage: not one of the chosen slides")
             continue
-        used = sum(1 for it in items if it.get("status") == "arranged")
+        used = len(fixed) + sum(1 for it in items if it.get("status") == "arranged")
         if used >= budget:
             plural = "s" if budget > 1 else ""
             item.update(status="kept", reason=f"dosage: {budget} arranged slide{plural} at most ({intensity})")
             continue
-        if last is not None and i - last < gap:
-            item.update(status="kept", reason=f"dosage: too close to {slides[last][0]} ({gap} slides apart at least)")
+        near = [j for j in ([last] if last is not None else []) + fixed if abs(i - j) < gap]
+        if near:
+            item.update(status="kept", reason=f"dosage: too close to {slides[near[0]][0]} ({gap} slides apart at least)")
             continue
         reasons = []
         for k in range(len(names)):
@@ -621,6 +658,7 @@ def arrange_deck(R, ctx, slides) -> Tuple[List[dict], dict]:
         else:
             item.update(status="fallback", reason="plain grid kept: " + "; ".join(reasons))
     summary = {"requested": names, "applied": True, "dosage": intensity, "budget": budget, "gap": gap,
+               "already_expressive": [slides[j][0] for j in fixed],
                "arranged": [it["id"] for it in items if it["status"] == "arranged"]}
     return items, summary
 

@@ -416,6 +416,54 @@ def test_deck_dosage_tuned_per_deck(tmp_path):
         R.override(style_with("arc"), slides="two")
 
 
+def named_deck(tmp_path, names):
+    """The fixture deck with Make_Clean's layout-id marker (hidden slide names) on some slides."""
+    deck = deck_copy(tmp_path)
+    prs = Presentation(str(deck))
+    for n, name in names.items():
+        prs.slides[n - 1]._element.cSld.set("name", name)
+    prs.save(str(deck))
+    return deck
+
+
+def test_deck_layout_id_read_and_ignored_when_foreign():
+    prs = Presentation(str(FIXTURE / "layouts.pptx"))
+    sl = prs.slides[0]
+    sl._element.cSld.set("name", "L-38")
+    assert AR.slide_layout_id(sl) == "L-38"
+    sl._element.cSld.set("name", "My own slide")
+    assert AR.slide_layout_id(sl) is None
+
+
+def test_deck_expressive_slides_count_in_the_dosage(tmp_path):
+    """An orbital or signature slide (known by its id) uses the budget and the gap."""
+    deck = named_deck(tmp_path, {3: "V-SIG-01-1"})
+    _, report = R.run(deck, style_with("stagger"), tmp_path / "out.pptx")
+    hook = report["hooks"]["arrangement"]
+    assert hook["already_expressive"] == ["slide 3"] and hook["budget"] == 2
+    got = {it["id"]: it for it in report["items"] if it["role"] == "arrangement"}
+    assert "too close to slide 3" in got["slide 4"]["reason"]
+    assert got["slide 6"]["status"] == "arranged"
+    assert got["slide 8"]["reason"].startswith("dosage: 2 arranged slide")
+    assert hook["arranged"] == ["slide 6"]
+
+
+def test_deck_index_rows_gate_the_arrangement(tmp_path):
+    """With the index, a layout that declares no arrangement, or another one, is left alone."""
+    deck = named_deck(tmp_path, {4: "X-04", 6: "X-06", 8: "X-08"})
+    idx = tmp_path / "layouts.csv"
+    idx.write_text("id;slide;tags;arrange\nX-04;4;;\nX-06;6;;row:4\nX-08;8;expressive;column:5\n", encoding="utf-8")
+    st = R.override(style_with("stagger"), intensity="all")
+    _, report = R.run(deck, st, tmp_path / "idx.pptx", index=[idx])
+    got = {it["id"]: it for it in report["items"] if it["role"] == "arrangement"}
+    assert got["slide 4"]["reason"] == "layout X-04 declares no arrangement"
+    assert got["slide 6"]["reason"] == "layout X-06 declares row:4, the slide has column:4"
+    assert "slide 8" not in got  # its row is tagged expressive: already carries a device
+    assert report["hooks"]["arrangement"]["arranged"] == []
+    assert R.main([str(deck), "--style", "organic", "--arrangement", "arc", "--index", str(idx),
+                   "--out", str(tmp_path / "cli.pptx")]) == 0
+
+
 def test_no_fixed_colours_or_fonts_added(arranged, tmp_path):
     """Make_Colors rebrands through the theme only: nothing this layer adds may carry a fixed
     RGB colour or a named font (every arranged variant has the colours and fonts of its source)."""

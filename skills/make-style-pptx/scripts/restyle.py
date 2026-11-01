@@ -3,6 +3,7 @@
 
     restyle.py <library folder | deck.pptx> --style organic [--out DIR|FILE] [--report FILE] [--force]
                [--arrangement stagger,arc] [--intensity calm|balanced|bold|all] [--slides 2,6,9]
+               [--index layouts.csv,visuals.csv]
 
 Input
     a library folder (layouts.pptx/.csv and visuals.pptx/.csv, a Make_Clean pack or
@@ -778,7 +779,7 @@ def restyle_library(src: Path, style: dict, out: Path) -> dict:
     return report
 
 
-def restyle_deck(src: Path, style: dict, out: Path) -> dict:
+def restyle_deck(src: Path, style: dict, out: Path, rows: Optional[Dict[str, dict]] = None) -> dict:
     """Restyle a built deck. Roles come from the shape names; slides with a chart or a
     table are left alone; the fit check uses the deck's real text."""
     prs = Presentation(str(src))
@@ -788,7 +789,7 @@ def restyle_deck(src: Path, style: dict, out: Path) -> dict:
         data = any(getattr(sh, "has_chart", False) or getattr(sh, "has_table", False)
                    for coll in collections(slide.shapes) for sh in coll)
         slides.append((f"slide {n}", slide, "slide with a chart or a table" if data else None))
-    items, arranged = AR.arrange_deck(sys.modules[__name__], ctx, slides)  # units first (#1607)
+    items, arranged = AR.arrange_deck(sys.modules[__name__], ctx, slides, rows)  # units first (#1607)
     for key, slide, reason in slides:
         items.extend(restyle_slide(ctx, slide, key, {}, reason))
     amb = AMB.apply_deck(prs, style)
@@ -803,7 +804,8 @@ def restyle_deck(src: Path, style: dict, out: Path) -> dict:
     return report
 
 
-def run(src: Path, style: dict, out: Optional[Path] = None, force: bool = False) -> Tuple[Path, dict]:
+def run(src: Path, style: dict, out: Optional[Path] = None, force: bool = False,
+        index: Optional[List[Path]] = None) -> Tuple[Path, dict]:
     src = src.resolve()
     deck = src.suffix.lower() == ".pptx"
     if out is None:
@@ -816,7 +818,10 @@ def run(src: Path, style: dict, out: Optional[Path] = None, force: bool = False)
         raise RestyleError(f"{out} already exists (use --force to replace it)")
     if deck:
         out.parent.mkdir(parents=True, exist_ok=True)
-        report = restyle_deck(src, style, out)
+        rows = {}
+        for path in index or []:
+            rows.update({r["id"]: r for r in read_index(path)[1] if r.get("id")})
+        report = restyle_deck(src, style, out, rows)
     else:
         if not src.is_dir():
             raise RestyleError(f"{src}: not a library folder nor a .pptx deck")
@@ -857,13 +862,16 @@ def main(argv=None) -> int:
     ap.add_argument("--force", action="store_true", help="replace an existing output")
     ap.add_argument("--arrangement", help="arrangements, comma separated (stagger, cascade, arc, deconstructed)")
     ap.add_argument("--intensity", help="deck: how many slides get arranged (calm, balanced, bold, all)")
+    ap.add_argument("--index", help="deck: Make_Clean index file(s) (layouts.csv, visuals.csv, comma separated) "
+                    "to read each slide's declared arrangement and expressive tags by layout id")
     ap.add_argument("--slides", help="deck: arrange these slides only (numbers, comma separated)")
     args = ap.parse_args(argv)
     try:
         style = load_style(args.style)
         if args.arrangement or args.intensity or args.slides:
             style = override(style, args.arrangement, args.intensity, args.slides)
-        out, report = run(Path(args.input), style, Path(args.out) if args.out else None, args.force)
+        out, report = run(Path(args.input), style, Path(args.out) if args.out else None, args.force,
+                          [Path(x) for x in args.index.split(",") if x] if args.index else None)
     except (RestyleError, OSError, ValueError) as exc:
         print(json.dumps({"error": str(exc)}))
         return 2

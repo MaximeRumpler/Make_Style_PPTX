@@ -53,7 +53,7 @@ Off-grid slides stand out, so they go where the content earns it. Pick by what t
 | `arc` | a story with a peak | before / turning point / after, a climax in the middle |
 | `deconstructed` | editorial, magazine | a bold cover-like statement, two to four items |
 
-How many is a matter of taste, not a rule: it depends on the request, the audience and the tone. Either let the preset spread them (`--intensity calm`, `balanced` or `bold`, about 1, 3 or 5 slides per 10; `all` takes every slide that passes), or pick the slides yourself for their content with `--slides 3,6`. A sober board deck may take one; a workshop deck can take more. Slides with a chart or a table are never arranged.
+How many is a matter of taste, not a rule: it depends on the request, the audience and the tone. Either let the preset spread them (`--intensity calm`, `balanced` or `bold`, about 1, 3 or 5 slides per 10; `all` takes every slide that passes), or pick the slides yourself for their content with `--slides 3,6`. A sober board deck may take one; a workshop deck can take more. Slides with a chart or a table are never arranged. Pass `--index` with Make_Clean's `layouts.csv` to respect each layout's declared arrangement; slides that already carry an orbital or signature device count in the share and keep their distance.
 
 ### 4. Restyle
 ```bash
