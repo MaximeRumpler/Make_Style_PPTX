@@ -7,7 +7,7 @@ python scripts/restyle.py <library folder> --style organic [--out <pack folder>]
 python scripts/restyle.py deck.pptx --style paper [--out deck-paper.pptx]
 python scripts/restyle_sheet.py <library folder> --style organic     # before/after PNG in the current folder
 python scripts/restyle_sheet.py <library folder> --style paper --arrangement cascade   # arrange-cascade.png
-python scripts/restyle.py deck.pptx --style paper --arrangement stagger,arc [--intensity bold | --slides 3,4,8]
+python scripts/restyle.py deck.pptx --style paper --arrangement stagger,arc [--intensity bold | --slides 3,4,8] [--index layouts.csv,visuals.csv]
 python scripts/restyle_sheet.py deck.pptx --style paper --arrangement stagger,arc      # arrange-deck.png
 ```
 
@@ -89,6 +89,7 @@ An arranged slide stands out. How many a deck takes is a matter of taste, not a 
   | `--slides 3,4,8` (or `"dosage": {"slides": [3, 4, 8]}`) | exactly the slides the agent chose for their content (neighbours allowed) |
   | `"dosage": {"per10": 5, "gap": 1}` | `per10` arranged slides per 10 (at least 1); `gap` 1 lets two sit side by side, 3 keeps two slides between them |
   | `--intensity` / `"intensity"` | presets: `calm` 1 per 10, `balanced` 3 (default), `bold` 5, `all` every slide that passes; spread as evenly as the share allows |
+  | `--index` | deck: Make_Clean's `layouts.csv` / `visuals.csv`. Decks built by Make_Clean carry each slide's library id as its hidden name; with the index, a layout that declares no `arrange` tag (or another one) is left alone. Slides that are already expressive (orbital, signature, arranged rows, or tagged `expressive` / `signature` in the index) count in the budget and the gap, with or without the index (by id prefix) |
 
   Slides are taken in order; the style's arrangements take turns, the next one is tried when one falls back; a fallback does not use the budget. The report's `hooks.arrangement` gives the dosage, the budget, the gap and the arranged slides; each candidate slide has an item (`arranged`, `fallback`, or `kept` with the dosage reason).
 
