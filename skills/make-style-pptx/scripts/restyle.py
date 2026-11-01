@@ -64,6 +64,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _ambience as AMB  # noqa: E402
 import _arrange as AR  # noqa: E402
 import _giant as GI  # noqa: E402
+import quality_gates as QG  # noqa: E402
 import _shapes as S  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -803,6 +804,7 @@ def restyle_deck(src: Path, style: dict, out: Path, rows: Optional[Dict[str, dic
                   if AR.is_expressive(AR.slide_layout_id(sl), (rows or {}).get(AR.slide_layout_id(sl)))
                   or any(it.get("status") == "arranged" and it["id"] == f"slide {n}" for it in items)}
     giant = GI.apply_deck(prs, style, expressive)  # after the ambience: the motif ignores the giant word
+    quality = QG.check(prs, style, rows)
     save_deterministic(prs, out)
     hooks = _hooks(style)
     if arranged:
@@ -813,6 +815,7 @@ def restyle_deck(src: Path, style: dict, out: Path, rows: Optional[Dict[str, dic
         report["ambience"] = amb
     if giant:
         report["giant"] = giant
+    report["quality"] = quality
     return report
 
 
