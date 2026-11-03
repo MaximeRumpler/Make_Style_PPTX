@@ -25,7 +25,7 @@ def packs(tmp_path_factory):
     out = {}
     for name in STYLES:
         dst = tmp_path_factory.mktemp(name) / "pack"
-        out[name] = R.run(FIXTURE, R.load_style(name), dst)
+        out[name] = R.run(FIXTURE, R.override(R.load_style(name), "none"), dst)  # plain grid: arrangements have their own tests
     return out
 
 

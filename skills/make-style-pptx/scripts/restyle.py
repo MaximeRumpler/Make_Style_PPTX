@@ -859,7 +859,8 @@ def override(style: dict, arrangement: Optional[str] = None, intensity: Optional
         except GI.GiantError as exc:
             raise RestyleError(str(exc)) from None
     if arrangement:
-        style["arrangement"] = [a.strip() for a in arrangement.split(",") if a.strip()]
+        names = [a.strip() for a in arrangement.split(",") if a.strip()]
+        style["arrangement"] = None if names == ["none"] else names  # "none" switches the style's own off
     if intensity:
         style["intensity"] = intensity
     if slides:
@@ -883,7 +884,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out", help="output folder (library) or .pptx (deck)")
     ap.add_argument("--report", help="also write the JSON report here")
     ap.add_argument("--force", action="store_true", help="replace an existing output")
-    ap.add_argument("--arrangement", help="arrangements, comma separated (stagger, cascade, arc, deconstructed)")
+    ap.add_argument("--arrangement", help="arrangements, comma separated (stagger, cascade, arc, deconstructed), or none to keep the plain grid")
     ap.add_argument("--intensity", help="deck: how many slides get arranged (calm, balanced, bold, all)")
     ap.add_argument("--giant", help="deck: one giant word or figure per slide, slide=word pairs "
                     "(3=2027,7=TRUST); the word must be in the slide's own text, 8 characters at most")
