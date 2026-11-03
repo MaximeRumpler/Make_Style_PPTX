@@ -29,6 +29,6 @@
       {"kind": "rounded", "params": {"radius": 0.4}}
     ]}
   },
-  "arrangement": null,
+  "arrangement": ["stagger"],
   "ambience": {"motif": "mist", "density": "low"}
 }

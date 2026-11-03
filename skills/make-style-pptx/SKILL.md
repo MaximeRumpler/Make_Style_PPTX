@@ -61,6 +61,7 @@ If the request is clear, or your harness cannot wait, state your choice in one l
 | `nature` | pebbles, leaf-like blobs and clouds, a soft wash behind covers | sustainability, outdoors, food and wellbeing; pebbles and a soft wash |
 
 ### 3. Choose arrangements by meaning (only for 2b or 2c)
+`organic` (stagger) and `paper` (stagger, cascade) arrange a few slides on their own at the balanced dose; pass `--arrangement none` to keep the plain grid, or `--arrangement ...` to choose others.
 Off-grid slides stand out, so they go where the content earns it. Pick by what the repeated items say:
 
 | Arrangement | Reads as | Good for |

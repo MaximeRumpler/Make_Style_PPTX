@@ -329,7 +329,7 @@ def test_deterministic_bytes_with_arrangement(tmp_path):
 
 def test_no_arrangement_no_change(tmp_path):
     """A style without an arrangement gives the same pack as before this layer existed."""
-    pack, report = R.run(FIXTURE, R.load_style("organic"), tmp_path / "p")
+    pack, report = R.run(FIXTURE, R.override(R.load_style("organic"), "none"), tmp_path / "p")
     assert not arrangement_items(report)
     assert R.read_index(pack / "layouts.csv")[1] == [
         {**r, "fields": r["fields"]} for r in R.read_index(pack / "layouts.csv")[1]]
@@ -532,3 +532,9 @@ def test_make_clean_builds_variant_rows_and_deck_restyles(arranged, tmp_path):
     r = subprocess.run([sys.executable, str(scripts / "lint_deck.py"), str(tmp_path / "plain-arc.pptx"), "--json"],
                        capture_output=True, text=True, timeout=240)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_organic_and_paper_arrange_by_default_and_none_switches_it_off(tmp_path):
+    for name, expected in (("organic", ["stagger"]), ("paper", ["stagger", "cascade"])):
+        assert AR.style_arrangements(R.load_style(name)) == expected
+        assert AR.style_arrangements(R.override(R.load_style(name), "none")) == []

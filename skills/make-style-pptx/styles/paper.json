@@ -25,6 +25,6 @@
       {"kind": "torn", "params": {"seed": "auto", "edges": "auto", "depth": 0.04}, "any_aspect": true}
     ]}
   },
-  "arrangement": null,
+  "arrangement": ["stagger", "cascade"],
   "ambience": {"motif": "grid", "density": "low"}
 }
