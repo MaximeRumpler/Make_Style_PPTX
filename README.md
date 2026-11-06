@@ -52,7 +52,7 @@ When a text would no longer fit a new shape, that card keeps its standard shape:
 
 | **Claude Code** | **Codex, Cursor, Copilot, Gemini CLI and others** | **Claude.ai or Claude desktop** |
 |:---|:---|:---|
-| `/plugin marketplace add MaximeRumpler/Make_PPTX`<br>then `/plugin install make-style-pptx@make-pptx` | `npx skills add MaximeRumpler/Make_Style_PPTX`<br>It asks which assistant you use. Needs [Node.js](https://nodejs.org). | A ready-to-upload zip comes with the first release. Until then, use one of the first two columns. |
+| `/plugin marketplace add MaximeRumpler/Make_PPTX`<br>then `/plugin install make-style-pptx@make-pptx` | `npx skills add MaximeRumpler/Make_Style_PPTX`<br>It asks which assistant you use. Needs [Node.js](https://nodejs.org). | 1. Download [**make-style-pptx.zip**](https://github.com/MaximeRumpler/Make_Style_PPTX/releases/latest/download/make-style-pptx.zip)<br>2. *Settings → Capabilities*: turn on *Code execution and file creation*<br>3. *Skills → Upload skill*, choose the zip |
 
 It needs Python 3.9 or later on your computer; the skill tells you if anything is missing. The before and after images also need LibreOffice. Install [Make_Clean_PPTX](https://github.com/MaximeRumpler/Make_Clean_PPTX#install) too if you want to make the deck in the same conversation.
 
