@@ -86,7 +86,7 @@ The report also says how many slides changed (`slides_changed`, `reach` in the f
 
 Read the report's `summary` (restyled, arranged, kept) and the items marked `fallback`: each gives the reason. A few fallbacks are normal (long text keeps its plain box); many on one slide mean the content is too dense for that style, which is worth one sentence to the user.
 
-Read `quality` in the report too: warnings from the gates (overlap, contrast over the motif, reading order, effects, dosage) are to-dos, explained in `references/quality-gates.md`; fix the slide or say what stays. `python3 scripts/quality_gates.py deck.pptx` runs them on any deck.
+Read `quality` in the report too: warnings from the gates (overlap, contrast over the motif, reading order, effects, dosage) are to-dos, explained in `references/quality-gates.md`; fix the slide or say what stays. `python3 scripts/quality_gates.py deck.pptx --style <style>` runs them on any deck; always pass the style the deck was restyled with, because without it the background motif's soft edges and transparency count as undeclared effects and raise false warnings.
 
 Ambience and the shapes come with the style. To change them (another motif, no motif, another candidate shape, the heading font), copy `styles/<style>.json`, edit it and pass its path to `--style`; every key is in `references/restyler.md`. Read that file only when you need to go beyond the two styles as they are.
 
