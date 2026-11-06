@@ -55,7 +55,7 @@ def test_flags_in_skill_md_exist():
                 assert flag in accepted, (script, flag)
 
 
-STDLIB = {"__future__", "argparse", "collections", "colorsys", "copy", "csv", "functools", "hashlib", "io", "itertools", "json",
+STDLIB = {"__future__", "argparse", "collections", "colorsys", "copy", "csv", "functools", "hashlib", "importlib", "io", "itertools", "json",
           "math", "os", "pathlib", "random", "re", "shutil", "struct", "subprocess", "sys", "tempfile", "typing",
           "xml", "zipfile", "zlib"}
 THIRD_PARTY = {"pptx", "PIL", "lxml"}  # python-pptx, Pillow, lxml: nothing else to install
