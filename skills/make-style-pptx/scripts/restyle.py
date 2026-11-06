@@ -740,6 +740,17 @@ def summarise(items: List[dict]) -> dict:
     return {"total": dict(sorted(total.items())), "by_role": by_role}
 
 
+def reach(items: List[dict], n_slides: int) -> dict:
+    """How many slides the restyle changed (shapes swapped or items arranged), as a count and a share."""
+    touched = set()
+    for it in items:
+        m = re.match(r"slide (\d+)", str(it.get("id", "")))
+        if m and it.get("status") in ("restyled", "arranged"):
+            touched.add(int(m.group(1)))
+    return {"slides": n_slides, "changed": len(touched), "percent": round(100 * len(touched) / n_slides) if n_slides else 0,
+            "changed_slides": sorted(touched)}
+
+
 def restyle_library(src: Path, style: dict, out: Path) -> dict:
     """Restyle both libraries of a folder into a new style pack folder."""
     char_em = _char_em(src)
@@ -822,6 +833,7 @@ def restyle_deck(src: Path, style: dict, out: Path, rows: Optional[Dict[str, dic
     if giant:
         report["giant"] = giant
     report["quality"] = quality
+    report["reach"] = reach(items, len(prs.slides))
     return report
 
 
@@ -913,7 +925,11 @@ def main(argv=None) -> int:
         Path(args.report).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     elif report["kind"] == "deck":
         out.with_suffix(".report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"output": str(out), "style": style["name"], "summary": report["summary"]["total"]}, indent=2))
+    out_json = {"output": str(out), "style": style["name"], "summary": report["summary"]["total"]}
+    if "reach" in report:
+        r = report["reach"]
+        out_json["slides_changed"] = f"{r['changed']} of {r['slides']} ({r['percent']}%)"
+    print(json.dumps(out_json, indent=2))
     return 0
 
 
