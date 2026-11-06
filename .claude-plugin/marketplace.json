@@ -10,7 +10,7 @@
       "name": "make-style-pptx",
       "source": "./",
       "description": "Gives a clean PowerPoint deck another look: other shapes, a few slides off the grid, a quiet motif, content untouched.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "license": "EUPL-1.2",
       "keywords": [
         "pptx",

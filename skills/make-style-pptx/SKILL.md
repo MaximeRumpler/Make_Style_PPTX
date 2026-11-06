@@ -5,7 +5,7 @@ license: EUPL-1.2. Complete terms in LICENSE.txt; decks and styles you create ar
 compatibility: Needs Python 3.9+ with python-pptx, Pillow and lxml (see requirements.txt). Works offline. Optional LibreOffice and poppler for the before/after images. Works in any agent harness that can run Python and read files (Claude Code, Claude.ai, Codex, other Agent Skills clients).
 metadata:
   repository: https://github.com/MaximeRumpler/Make_Style_PPTX
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Make Style PPTX

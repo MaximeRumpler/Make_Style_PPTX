@@ -1,6 +1,6 @@
 {
   "name": "make-style-pptx",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Gives a clean PowerPoint deck another look without touching its content: other shapes than square boxes, a few slides off the plain grid, a quiet background motif, every change checked so text still fits. Works on Make_Clean_PPTX decks. English and French.",
   "author": {
     "name": "Maxime Rumpler",
