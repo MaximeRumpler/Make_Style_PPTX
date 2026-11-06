@@ -92,7 +92,7 @@ The styles are files: a style pack works with Make_Clean_PPTX's libraries, and M
 
 ## The Make PPTX set
 
-Part of [**Make PPTX**](https://github.com/MaximeRumpler/Make_PPTX), three skills that take your notes to a finished deck. Each one works on its own.
+Part of [**Make PPTX**](https://maximerumpler.github.io/Make_PPTX/) ([source](https://github.com/MaximeRumpler/Make_PPTX)), three skills that take your notes to a finished deck. Each one works on its own.
 
 | **Make_Clean_PPTX** | **Make_Style_PPTX** | **Make_Colors_PPTX** |
 |:---|:---|:---|
