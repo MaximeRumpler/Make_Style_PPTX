@@ -74,12 +74,13 @@ Off-grid slides stand out, so they go where the content earns it. Pick by what t
 How many is a matter of taste, not a rule: it depends on the request, the audience and the tone. Either let the preset spread them (`--intensity calm`, `balanced` or `bold`, about 1, 3 or 5 slides per 10; `all` takes every slide that passes), or pick the slides yourself for their content with `--slides 3,6`. A sober board deck may take one; a workshop deck can take more. Slides with a chart or a table are never arranged. Pass `--index` with Make_Clean's `layouts.csv` to respect each layout's declared arrangement; slides that already carry an orbital or signature device count in the share and keep their distance.
 
 ### 4. Restyle
+Keep everything that is not the deliverable (report, check images) in a temporary folder so the user's folder ends up with the restyled deck only: `WORK=$(mktemp -d)` (Windows: `$WORK = Join-Path $env:TEMP "make-style"`, then create it), or `python3 <make-clean>/skills/make-clean-pptx/scripts/workdir.py` when Make_Clean_PPTX is installed.
 ```bash
-python3 scripts/restyle.py deck.pptx --style organic
+python3 scripts/restyle.py deck.pptx --style organic --report "$WORK/report.json"
 python3 scripts/restyle.py deck.pptx --style paper --arrangement stagger,cascade --intensity balanced
 python3 scripts/restyle.py deck.pptx --style paper --arrangement arc --slides 4 --out deck-paper-v2.pptx --force
 ```
-It writes `<deck>-<style>.pptx` and `<deck>-<style>.report.json` (or `--out <file>.pptx`); `--force` replaces an earlier output. Several arrangements take turns across the arranged slides. Exit code 2 prints `{"error": …}` in plain words.
+It writes `<deck>-<style>.pptx` and the report (`--report`, by default `<deck>-<style>.report.json` next to the deck: pass `--report "$WORK/report.json"` so it does not stay there; `--out <file>.pptx` names the deck); `--force` replaces an earlier output. Several arrangements take turns across the arranged slides. Exit code 2 prints `{"error": …}` in plain words.
 
 Read the report's `summary` (restyled, arranged, kept) and the items marked `fallback`: each gives the reason. A few fallbacks are normal (long text keeps its plain box); many on one slide mean the content is too dense for that style, which is worth one sentence to the user.
 
@@ -89,12 +90,12 @@ Ambience and the shapes come with the style. To change them (another motif, no m
 
 ### 5. Check
 ```bash
-python3 scripts/restyle_sheet.py deck.pptx --style paper --arrangement stagger,cascade --intensity balanced --png build/style-check.png
+python3 scripts/restyle_sheet.py deck.pptx --style paper --arrangement stagger,cascade --intensity balanced --png "$WORK/style-check.png"
 ```
 Same flags as the restyle (minus `--out`, `--force` and `--slides`): the result is the same bytes, rendered before (left) and after (right) with a note per slide. Always pass `--png`. Open the image and look for: text that looks cramped or cut, items that seem out of order, a timeline whose connecting line disappeared (arranged timelines lose it: drop that slide with `--slides`), a motif that fights with the text. Fix by choosing other slides, another arrangement or the other style, then restyle again with `--force`. Stop after three rounds and say what is still off. When you used `--slides`, render the output itself instead (Make_Clean_PPTX's `render_check.py`, or open it). Without LibreOffice the sheet cannot be drawn: rely on the report and say the visual check was skipped.
 
-### 6. Deliver
-Give the full path of the new `.pptx` (in harnesses with an outputs folder, save it there) and two or three sentences: the style and arrangements used, how many slides changed, anything kept plain and why (in plain words, not report keys). If the user mentioned their brand, add one line: Make_Colors_PPTX puts their colours, fonts and logo on this deck, before or after the style. No recap of the steps.
+### 6. Deliver and clean up
+Delete the temporary folder (and any `.report.json` or check image you did not put there): the user's folder holds the deliverable and nothing else. Give the full path of the new `.pptx` (in harnesses with an outputs folder, save it there) and two or three sentences: the style and arrangements used, how many slides changed, anything kept plain and why (in plain words, not report keys). If the user mentioned their brand, add one line: Make_Colors_PPTX puts their colours, fonts and logo on this deck, before or after the style. No recap of the steps.
 
 ## A style of your own
 If neither reference style fits, or the user describes a mood or gives a deck they like, build a style file: map the mood to shapes, arrangement and ambience, or draft it from the deck with `python3 scripts/style_from_deck.py example.pptx --out styles/mine.json` (patterns only, nothing copied). Validate with `--check`, render with `restyle_sheet.py --style styles/mine.json`, adjust at most twice. See `references/style-from-description.md`.
@@ -119,7 +120,7 @@ The pack keeps every id and field name; limits shrink where a text box got small
 
 | Symptom | Fix |
 |---|---|
-| A script says a Python package is missing | `python3 -m pip install -r requirements.txt` |
+| A script says a Python package is missing | `python3 scripts/_env.py --setup`: builds a private Python folder (also works where `pip install` is refused, e.g. recent Ubuntu); the scripts use it by themselves. |
 | `already exists (use --force to replace it)` | Add `--force`, or `--out` with a new name. |
 | Summary is empty or almost everything is `kept` | The deck has no role names (not built by Make_Clean_PPTX) or is text-heavy: rebuild it with Make_Clean_PPTX, or try the other style. |
 | An arranged slide `fallback` | Its text needs the full grid width; pick another slide or arrangement. |
