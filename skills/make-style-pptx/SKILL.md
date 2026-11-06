@@ -82,6 +82,8 @@ python3 scripts/restyle.py deck.pptx --style paper --arrangement arc --slides 4 
 ```
 It writes `<deck>-<style>.pptx` and the report (`--report`, by default `<deck>-<style>.report.json` next to the deck: pass `--report "$WORK/report.json"` so it does not stay there; `--out <file>.pptx` names the deck); `--force` replaces an earlier output. Several arrangements take turns across the arranged slides. Exit code 2 prints `{"error": …}` in plain words.
 
+The report also says how many slides changed (`slides_changed`, `reach` in the file). Compare it with the request: someone who asked for a creative, original or bold look expects most slides to show it, so when only a few changed, raise `--intensity`, choose another arrangement or style, and say what you did; someone who asked for a quiet touch is served by a few. Never leave a "creative" request at the plain default without saying why.
+
 Read the report's `summary` (restyled, arranged, kept) and the items marked `fallback`: each gives the reason. A few fallbacks are normal (long text keeps its plain box); many on one slide mean the content is too dense for that style, which is worth one sentence to the user.
 
 Read `quality` in the report too: warnings from the gates (overlap, contrast over the motif, reading order, effects, dosage) are to-dos, explained in `references/quality-gates.md`; fix the slide or say what stays. `python3 scripts/quality_gates.py deck.pptx` runs them on any deck.

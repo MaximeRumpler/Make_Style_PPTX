@@ -396,3 +396,10 @@ def test_paper_gates_are_hand_drawn_diamonds(packs):
     assert stage["params"].get("form") is None  # only diamonds become diamonds
     labels = [it for it in items(report, "restyled") if it["role"] == "label" and it["id"] != "V-PRO-04"]
     assert labels and all(it["params"]["form"] == "rect" for it in labels if it["id"] not in ("V-PRO-06",))
+
+
+def test_reach_counts_changed_slides():
+    items = [{"id": "slide 2", "status": "arranged"}, {"id": "slide 2 / Box", "status": "restyled"},
+             {"id": "slide 5", "status": "kept"}, {"id": "slide 7 / Box", "status": "restyled"}]
+    r = R.reach(items, 10)
+    assert r["changed"] == 2 and r["percent"] == 20 and r["changed_slides"] == [2, 7]
