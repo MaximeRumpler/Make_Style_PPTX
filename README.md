@@ -82,6 +82,8 @@ It may ask one quick question first: the style, and how many slides get a specia
 
 **How many special slides.** An arranged slide stands out, so the right number depends on your request, your audience and the tone of the content: none for a board update, more for a keynote or a workshop. *Calm*, *balanced* and *bold* are starting points, not limits, and you can name the slides yourself.
 
+**What changed.** The report says how many slides changed, so a request for a bold look is not left at a quiet default without a word. Arrows and connectors that would cross text are caught, and layouts built around them keep their plain grid.
+
 **Checked before delivery.** Text that would overflow, overlap another block or leave the margins keeps its plain layout. Background motifs never go on dense slides, and any part that would make a text harder to read than WCAG's 4.5:1 is left out. Same deck and same style always give the same file.
 
 The styles are files: a style pack works with Make_Clean_PPTX's libraries, and Make_Colors_PPTX can add your brand colours on top. Details in [references/restyler.md](skills/make-style-pptx/references/restyler.md).
