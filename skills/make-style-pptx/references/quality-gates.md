@@ -1,6 +1,6 @@
 # Quality gates
 
-`scripts/quality_gates.py` runs on every deck the restyler writes (the report's `quality` key) and on its own (`python3 scripts/quality_gates.py deck.pptx --style paper`). It only warns: each warning is a to-do for the agent, never an automatic edit. `--strict` exits 1 when there is a warning.
+`scripts/quality_gates.py` runs on every deck the restyler writes (the report's `quality` key) and on its own (`python3 scripts/quality_gates.py deck.pptx --style paper`). Run on its own, pass the deck's style (`--style`): without one nothing is declared, so a motif's soft edge or gradient is reported as undeclared. It only warns: each warning is a to-do for the agent, never an automatic edit. `--strict` exits 1 when there is a warning.
 
 | Gate | What it flags | What to do |
 |---|---|---|
