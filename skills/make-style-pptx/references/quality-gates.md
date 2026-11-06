@@ -5,6 +5,7 @@
 | Gate | What it flags | What to do |
 |---|---|---|
 | `overlap` | two text boxes covering each other by more than a tenth of the smaller one | pick another shape or arrangement for that slide, or shorten the text |
+| `lines` | a connector or arrow whose body crosses a text box (arranged items move, lines stay) | restyle that slide with the plain grid (`--slides` to leave it out), or another arrangement |
 | `contrast` | a text run below 4.5:1 (3:1 for large text) over the stack behind it, and worse than on the bare background | drop or lighten the motif or the giant word on that slide; text that was already faint is the content's own matter |
 | `reading-order` | body text before the title in the XML; ambience or giant word not marked decorative | move the title first; mark decoration decorative |
 | `effects` | more than 4 kinds of effect on one slide (shadow, rotation, transparency, gradient, glow, soft edge, decorative group), or a gradient, glow or soft edge the style does not declare | remove the extra effect; declare it in the style if it is meant |

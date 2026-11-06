@@ -112,3 +112,13 @@ def test_restyled_deck_report_carries_the_gates_and_the_cli(tmp_path):
     prs.save(str(bad))
     assert QG.main([str(bad)]) == 0 and QG.main([str(bad), "--strict"]) == 1
     assert QG.main([str(tmp_path / "missing.pptx")]) == 2
+
+
+def test_connector_across_text_is_flagged(tmp_path):
+    from pptx.enum.shapes import MSO_CONNECTOR
+    prs = deck(tmp_path)
+    slide = prs.slides[4]
+    t = shape(prs, 5, "Title")
+    y = t.top + t.height // 2
+    slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, t.left, y, t.left + t.width, y).name = "arrow#1"
+    assert (5, "lines") in gates(prs)

@@ -3,7 +3,7 @@
 
     quality_gates.py deck.pptx [--style paper] [--index layouts.csv,visuals.csv] [--strict] [--json FILE]
 
-Five static gates, run on every deck the restyler writes (report key ``quality``) and on its own:
+Six static gates, run on every deck the restyler writes (report key ``quality``) and on its own:
 
 1. overlap: two text boxes that cover each other by more than a tenth of the smaller one;
 2. contrast: each text run against the stack behind it (background, then every translucent
@@ -11,6 +11,7 @@ Five static gates, run on every deck the restyler writes (report key ``quality``
    whole box, minus a soft edge, so it is conservative); below 4.5:1 (3:1 for large text), and worse than the
    same text on the bare background, is a warning. Text that was already faint is the content's
    business, not the style's;
+   2b. lines: a connector or arrow that crosses a text box;
 3. reading order: the title comes before the body text (a kicker or number may lead it); ambience, giant words and
    decorations are flagged decorative;
 4. effects budget: distinct kinds of effect on one slide (shadow, rotation, transparency,
@@ -124,6 +125,36 @@ def contrast_gate(slide, add) -> None:
                                   f"{base:.1f}:1 on the bare background)")
 
 
+# ------------------------------------------------------------------ 2b. lines across text, tight headings
+LINE_PRESETS = {"line", "straightConnector1", "bentConnector2", "bentConnector3", "rightArrow", "leftArrow",
+                "upArrow", "downArrow", "leftRightArrow", "curvedConnector3"}
+ARROW_TIGHT = 0.06 * 914400  # a line may graze a text box edge by this much (EMU)
+
+
+def _is_line(sh) -> bool:
+    if AMB._text(sh).strip() or _is_decor(sh):
+        return False
+    el = sh._element
+    if el.tag.endswith("}cxnSp"):
+        return True
+    geom = el.find(f"{P}spPr/{A}prstGeom")
+    return geom is not None and geom.get("prst") in LINE_PRESETS
+
+
+def lines_gate(slide, add) -> None:
+    """A connector or arrow whose body crosses the words of a text box (arranged items move, lines do not)."""
+    texts = _text_shapes(slide)
+    for ln in (sh for sh in AMB._flat(slide.shapes) if _is_line(sh)):
+        lx, ly, lw, lh = AMB._box(ln)
+        for t in texts:
+            tx, ty, tw, th = AMB._box(t)
+            ix = min(lx + lw, tx + tw - ARROW_TIGHT) - max(lx, tx + ARROW_TIGHT)
+            iy = min(ly + lh, ty + th - ARROW_TIGHT) - max(ly, ty + ARROW_TIGHT)
+            if ix > 0 and iy >= 0 and (lw or lh):
+                add("lines", ln.name, f"'{ln.name}' crosses the text box '{t.name}'")
+                break
+
+
 # ------------------------------------------------------------------ 3. reading order
 def order_gate(slide, add) -> None:
     for sh in slide.shapes:
@@ -206,6 +237,7 @@ def check(prs, style: Optional[dict] = None, rows: Optional[Dict[str, dict]] = N
             warnings.append({"slide": n, "gate": gate, "shape": shape, "message": message})
         overlap_gate(slide, add)
         contrast_gate(slide, add)
+        lines_gate(slide, add)
         order_gate(slide, add)
         effects_gate(slide, add, declared, budget)
     dosage_gate(prs, rows or {}, lambda n, gate, shape, msg: warnings.append(
